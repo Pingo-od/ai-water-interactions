@@ -142,8 +142,32 @@
     onFinish: null
   };
 
+  const PROCESSING_BAR_DEFAULTS = {
+    classPrefix: "aiw",
+    target: null,
+    autoPlay: true,
+    width: 512,
+    height: 32,
+    align: "center",
+    cycleDuration: 3250,
+    renderScale: 1,
+    colors: {
+      baseA: "rgba(59, 131, 247, 0.4)",
+      baseB: "rgba(59, 131, 247, 0.6)",
+      glassA: "rgba(251, 253, 255, 0.62)",
+      glassB: "rgba(188, 220, 255, 0.34)",
+      bloomA: "rgba(140, 211, 255, 0.48)",
+      bloomB: "rgba(113, 91, 255, 0.22)"
+    }
+  };
+
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
+  }
+
+  function smoothstep(a, b, value) {
+    const n = clamp((value - a) / (b - a), 0, 1);
+    return n * n * (3 - 2 * n);
   }
 
   class AICursor {
@@ -1706,6 +1730,211 @@
     }
   }
 
+  class ProcessingGenerationBar {
+    constructor(options = {}) {
+      this.options = { ...PROCESSING_BAR_DEFAULTS, ...options };
+      this.target = typeof this.options.target === "string" ? document.querySelector(this.options.target) : this.options.target;
+      this.target = this.target || document.body;
+      this.running = false;
+      this.frameId = 0;
+      this.startedAt = 0;
+      this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      this.layer = document.createElement("div");
+      this.layer.className = `${this.options.classPrefix}-processing-bar`;
+      this.canvas = document.createElement("canvas");
+      this.canvas.className = `${this.options.classPrefix}-processing-bar-canvas`;
+      this.ctx = this.canvas.getContext("2d");
+      this.layer.append(this.canvas);
+      this.target.append(this.layer);
+
+      this.resizeObserver = null;
+      this.onResize = this.onResize.bind(this);
+      this.tick = this.tick.bind(this);
+      this.resize();
+      if ("ResizeObserver" in window) {
+        this.resizeObserver = new ResizeObserver(this.onResize);
+        this.resizeObserver.observe(this.target);
+      } else {
+        window.addEventListener("resize", this.onResize);
+      }
+      if (this.options.autoPlay) this.start();
+    }
+
+    onResize() {
+      this.resize();
+    }
+
+    resize() {
+      const rect = this.target.getBoundingClientRect();
+      const width = rect.width || this.options.width;
+      const height = rect.height || this.options.height;
+      this.dpr = Math.min(window.devicePixelRatio || 1, 2) * this.options.renderScale;
+      this.width = Math.max(1, Math.round(width));
+      this.height = Math.max(1, Math.round(height));
+      this.canvas.width = Math.max(1, Math.round(this.width * this.dpr));
+      this.canvas.height = Math.max(1, Math.round(this.height * this.dpr));
+      this.canvas.style.width = `${this.width}px`;
+      this.canvas.style.height = `${this.height}px`;
+      this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    }
+
+    capsulePath(ctx, x, y, width, height, bulgeCenter, bulge, phase) {
+      const radius = height / 2;
+      const cy = y + radius;
+      const steps = 132;
+      const localAmp = bulge * 0.06;
+      const centerYAt = px => cy + Math.sin(px * 0.035 + phase) * localAmp;
+      const radiusAt = px => {
+        const g = Math.exp(-Math.pow((px - bulgeCenter) / (width * 0.18), 2));
+        return radius + bulge * g;
+      };
+      const yOnCapsule = (px, sign) => {
+        let baseHalf = radius;
+        if (px < x + radius) {
+          const dx = px - (x + radius);
+          baseHalf = Math.sqrt(Math.max(0, radius * radius - dx * dx));
+        } else if (px > x + width - radius) {
+          const dx = px - (x + width - radius);
+          baseHalf = Math.sqrt(Math.max(0, radius * radius - dx * dx));
+        }
+        return centerYAt(px) + sign * baseHalf * (radiusAt(px) / radius);
+      };
+      const points = [];
+      for (let i = 0; i <= steps; i += 1) {
+        const px = x + width * (i / steps);
+        points.push([px, yOnCapsule(px, -1)]);
+      }
+      for (let i = steps; i >= 0; i -= 1) {
+        const px = x + width * (i / steps);
+        points.push([px, yOnCapsule(px, 1)]);
+      }
+      ctx.beginPath();
+      const last = points[points.length - 1];
+      const first = points[0];
+      ctx.moveTo((last[0] + first[0]) * 0.5, (last[1] + first[1]) * 0.5);
+      for (let i = 0; i < points.length; i += 1) {
+        const p0 = points[i];
+        const p1 = points[(i + 1) % points.length];
+        ctx.quadraticCurveTo(p0[0], p0[1], (p0[0] + p1[0]) * 0.5, (p0[1] + p1[1]) * 0.5);
+      }
+      ctx.closePath();
+    }
+
+    draw(time) {
+      const ctx = this.ctx;
+      const w = this.width;
+      const h = this.height;
+      const colors = this.options.colors;
+      const progress = ((time % this.options.cycleDuration) / this.options.cycleDuration);
+      const pillW = Math.min(this.options.width, w);
+      const pillH = Math.min(this.options.height, h);
+      const x = this.options.align === "left" ? 0 : (w - pillW) / 2;
+      const y = (h - pillH) / 2;
+      const sweepW = pillW * 0.38;
+      const pass1 = smoothstep(0.02, 0.12, progress) * (1 - smoothstep(0.43, 0.53, progress));
+      const pass2 = smoothstep(0.38, 0.5, progress) * (1 - smoothstep(0.76, 0.86, progress));
+      const progress1 = smoothstep(0.02, 0.5, progress);
+      const progress2 = smoothstep(0.38, 0.82, progress);
+      const sweepX1 = x - pillW * 0.28 + progress1 * (pillW + sweepW * 0.22);
+      const sweepX2 = x - pillW * 0.28 + progress2 * (pillW + sweepW * 0.22);
+      const sweepC1 = sweepX1 + sweepW * 0.5;
+      const sweepC2 = sweepX2 + sweepW * 0.5;
+      const active2Dominant = pass1 < 0.045 && pass2 > 0;
+      const sweepC = active2Dominant ? sweepC2 : sweepC1;
+      const sweepActive = Math.max(pass1, pass2);
+      const inPill = clamp(1 - Math.abs(sweepC - (x + pillW / 2)) / (pillW * 0.62), 0, 1) * sweepActive;
+      const bulge = 1.6 + 10.4 * inPill;
+      const phase = time * 0.0048;
+      const solidStop = clamp((active2Dominant ? progress2 : progress1) * 0.86 + 0.08, 0, 1);
+
+      ctx.clearRect(0, 0, w, h);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x - 28, y - 12, pillW + 56, pillH + 24);
+      ctx.clip();
+
+      ctx.save();
+      ctx.shadowColor = "rgba(59, 131, 247, 0.36)";
+      ctx.shadowBlur = 10 + inPill * 12;
+      ctx.filter = `blur(${4 + inPill * 1.2}px)`;
+      this.capsulePath(ctx, x, y, pillW, pillH, sweepC, bulge * 0.18, phase);
+      const base = ctx.createLinearGradient(x, y, x + pillW, y);
+      base.addColorStop(0, colors.baseA);
+      base.addColorStop(0.42, colors.baseB);
+      base.addColorStop(1, colors.baseA);
+      ctx.fillStyle = base;
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      this.capsulePath(ctx, x, y, pillW, pillH, sweepC, 0, phase);
+      ctx.clip();
+      ctx.globalCompositeOperation = "screen";
+      ctx.filter = `blur(${3.6 + inPill * 3}px)`;
+      ctx.globalAlpha = 0.5;
+      this.capsulePath(ctx, x, y, pillW, pillH, sweepC, bulge * 0.55, phase);
+      const soft = ctx.createLinearGradient(x, y, x + pillW, y);
+      soft.addColorStop(0, colors.glassA);
+      soft.addColorStop(0.35, colors.bloomA);
+      soft.addColorStop(0.58, "rgba(20, 74, 175, 0.16)");
+      soft.addColorStop(0.82, colors.glassB);
+      soft.addColorStop(1, colors.glassA);
+      ctx.fillStyle = soft;
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      this.capsulePath(ctx, x, y, pillW, pillH, sweepC, 0, phase);
+      ctx.clip();
+      ctx.globalCompositeOperation = "screen";
+      ctx.filter = `blur(${2.2 + inPill * 2.2}px)`;
+      this.capsulePath(ctx, x, y, pillW, pillH, sweepC, bulge * 0.42, phase);
+      const glass = ctx.createLinearGradient(x, y, x + pillW, y);
+      glass.addColorStop(0, "rgba(255, 255, 255, 0.2)");
+      glass.addColorStop(clamp(solidStop - 0.16, 0, 1), "rgba(255, 255, 255, 0.06)");
+      glass.addColorStop(clamp(solidStop + 0.04, 0, 1), colors.bloomA);
+      glass.addColorStop(clamp(solidStop + 0.24, 0, 1), colors.bloomB);
+      glass.addColorStop(1, "rgba(255, 255, 255, 0.12)");
+      ctx.fillStyle = glass;
+      ctx.fill();
+      ctx.restore();
+
+      ctx.restore();
+    }
+
+    tick(timestamp) {
+      if (!this.running) return;
+      if (!this.startedAt) this.startedAt = timestamp;
+      this.draw(timestamp - this.startedAt);
+      this.frameId = window.requestAnimationFrame(this.tick);
+    }
+
+    start() {
+      if (this.running) return this;
+      this.running = true;
+      this.startedAt = 0;
+      this.layer.classList.add("is-running");
+      this.frameId = window.requestAnimationFrame(this.tick);
+      return this;
+    }
+
+    stop() {
+      this.running = false;
+      this.layer.classList.remove("is-running");
+      if (this.frameId) window.cancelAnimationFrame(this.frameId);
+      this.frameId = 0;
+      return this;
+    }
+
+    destroy() {
+      this.stop();
+      if (this.resizeObserver) this.resizeObserver.disconnect();
+      window.removeEventListener("resize", this.onResize);
+      this.layer.remove();
+    }
+  }
+
   window.AIWater = window.AIWater || {};
   window.AIWater.AICursor = AICursor;
   window.AIWater.CursorTrigger = CursorTrigger;
@@ -1715,6 +1944,7 @@
   window.AIWater.EdgeGlowLayer = EdgeGlowLayer;
   window.AIWater.TextSelectionGeneration = TextSelectionGeneration;
   window.AIWater.TableSwipeMerge = TableSwipeMerge;
+  window.AIWater.ProcessingGenerationBar = ProcessingGenerationBar;
   window.AIWater.createCursor = function createCursor(options) {
     return new AICursor(options);
   };
@@ -1738,5 +1968,8 @@
   };
   window.AIWater.createTableSwipeMerge = function createTableSwipeMerge(options) {
     return new TableSwipeMerge(options);
+  };
+  window.AIWater.createProcessingGenerationBar = function createProcessingGenerationBar(options) {
+    return new ProcessingGenerationBar(options);
   };
 })();
