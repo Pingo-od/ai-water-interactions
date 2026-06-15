@@ -461,6 +461,89 @@
   animation-delay: -2080ms;
 }
 
+.aiw-text-selection-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 2147482700;
+  pointer-events: none;
+}
+
+.aiw-text-selection-marks {
+  position: absolute;
+  inset: 0;
+}
+
+.aiw-text-selection-mark {
+  position: fixed;
+  display: block;
+  border-radius: 20px;
+  background-image: linear-gradient(161.878deg, rgba(59, 131, 247, 0.4) 24.021%, rgba(59, 131, 247, 0.6) 69.893%);
+  filter: blur(4px);
+  opacity: 0;
+  transform: scaleX(0.72);
+  transform-origin: 0 50%;
+  animation: aiwTextSelectionMarkIn 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: left, top, width, height, opacity, transform;
+}
+
+.aiw-text-selection-layer.is-selecting .aiw-text-selection-mark {
+  opacity: 1;
+  transform: scaleX(1);
+  animation: none;
+}
+
+.aiw-text-selection-mark::after {
+  content: "";
+  position: absolute;
+  inset: 4px 12px;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.2);
+  filter: blur(8px);
+  opacity: 0.42;
+}
+
+.aiw-text-selection-target-active {
+  cursor: none;
+  user-select: none;
+}
+
+.aiw-text-selection-cursor-wrap {
+  position: fixed;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  transform: translate3d(var(--aiw-selection-cursor-x, -120px), var(--aiw-selection-cursor-y, -120px), 0) scale(0.96);
+  transform-origin: 50px 37px;
+  transition: opacity 120ms ease, transform 120ms ease;
+  will-change: transform, opacity;
+}
+
+.aiw-text-selection-layer.is-selecting .aiw-text-selection-cursor-wrap {
+  opacity: 1;
+  transform: translate3d(var(--aiw-selection-cursor-x, -120px), var(--aiw-selection-cursor-y, -120px), 0) scale(1);
+}
+
+.aiw-text-selection-cursor {
+  position: relative;
+  z-index: 1;
+  display: block;
+  filter: drop-shadow(0 0 12px rgba(59, 131, 247, 0.35));
+  user-select: none;
+}
+
+.aiw-text-selection-cursor-glow {
+  position: absolute;
+  left: -14px;
+  top: -16px;
+  width: 86px;
+  height: 86px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(59, 131, 247, 0.22), rgba(59, 131, 247, 0.08) 42%, transparent 72%);
+  filter: blur(6px);
+  animation: aiwTextSelectionPulse 980ms ease-in-out infinite;
+}
+
 @keyframes aiwVoiceWave {
   0%,
   100% {
@@ -524,5 +607,25 @@
       saturate(calc(1.08 + var(--aiw-edge-intensity, 1) * 0.1))
       drop-shadow(0 0 14px rgba(116, 196, 255, 0.22));
     transform: scale(1.002);
+  }
+}
+
+@keyframes aiwTextSelectionMarkIn {
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes aiwTextSelectionPulse {
+  0%,
+  100% {
+    opacity: 0.58;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
   }
 }

@@ -162,6 +162,31 @@
 - `edgeGlow.setOptions(options)`: 更新厚度、模糊、透明度、强度或颜色。
 - `edgeGlow.destroy()`: 销毁光晕层。
 
+## TextSelectionGeneration
+
+负责在文本区域内拖拽划词，生成 Figma 样式的蓝色水相选区，并在松开后展示 AI 生成状态。
+
+```html
+<article data-ai-text-selection>
+  CentWise flips the model from Reactive to Proactive.
+</article>
+
+<script>
+  const textSelection = AIWater.createTextSelectionGeneration({
+    target: "[data-ai-text-selection]",
+    actionText: "正在润色",
+    resultText: "生成完成"
+  });
+</script>
+```
+
+- `AIWater.createTextSelectionGeneration(options)`: 创建划词生成组件。
+- `target`: 要启用划词交互的文本容器。
+- `actionText`: 松开后生成气泡里的生成中文案。
+- `resultText`: 生成完成后的文案。
+- `textSelection.clear()`: 清空当前选区和生成气泡。
+- `textSelection.destroy()`: 销毁组件。
+
 ### CursorTrigger 参数
 
 - `shakeThreshold`: 触发前需要识别到的方向反转次数。
