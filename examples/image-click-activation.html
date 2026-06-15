@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Click Activation</title>
+    <link rel="stylesheet" href="../dist/ai-water-interactions.css?v=image-click-3" />
+    <style>
+      :root {
+        font-family: "SF Pro Display", "PingFang SC", "Noto Sans SC", Arial, sans-serif;
+        color: #17202a;
+        background:
+          radial-gradient(circle at 18% 12%, rgba(70, 192, 255, 0.12), transparent 28%),
+          radial-gradient(circle at 84% 84%, rgba(121, 138, 255, 0.1), transparent 30%),
+          #f7f9fb;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+      }
+
+      .home-link {
+        position: fixed;
+        left: 24px;
+        top: 24px;
+        z-index: 20;
+        border: 1px solid rgba(37, 107, 181, 0.18);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow: 0 10px 28px rgba(42, 95, 162, 0.1);
+        color: #1f67c8;
+        font-size: 14px;
+        font-weight: 800;
+        padding: 9px 14px;
+        text-decoration: none;
+        backdrop-filter: blur(18px);
+      }
+
+      main {
+        width: min(1120px, calc(100% - 48px));
+        min-height: 100vh;
+        margin: 0 auto;
+        display: grid;
+        align-content: center;
+        gap: 24px;
+        padding: 92px 0;
+      }
+
+      h1,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 30px;
+        letter-spacing: 0;
+      }
+
+      .intro {
+        max-width: 780px;
+        color: #5f6f7c;
+        font-size: 18px;
+        line-height: 1.62;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 280px;
+        gap: 22px;
+        align-items: stretch;
+      }
+
+      .image-shell {
+        border: 1px solid rgba(37, 107, 181, 0.14);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.88);
+        box-shadow: 0 22px 58px rgba(63, 91, 123, 0.12);
+        padding: 22px;
+      }
+
+      .demo-image {
+        position: relative;
+        aspect-ratio: 2048 / 1158;
+        min-height: 360px;
+        border-radius: 34px;
+        overflow: hidden;
+        background: #c3aa9b;
+        box-shadow:
+          0 18px 46px rgba(63, 91, 123, 0.14),
+          inset 0 0 0 12px rgba(255, 255, 255, 0.92);
+        user-select: none;
+        touch-action: none;
+      }
+
+      .demo-image img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+        pointer-events: none;
+      }
+
+      .side-panel {
+        display: grid;
+        align-content: start;
+        gap: 14px;
+        border: 1px solid rgba(37, 107, 181, 0.14);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow: 0 22px 58px rgba(63, 91, 123, 0.1);
+        padding: 22px;
+      }
+
+      .side-panel strong {
+        color: #167552;
+        font-size: 15px;
+      }
+
+      .side-panel p {
+        color: #5f6f7c;
+        font-size: 15px;
+        line-height: 1.58;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      button {
+        border: 1px solid rgba(37, 107, 181, 0.18);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow: 0 10px 28px rgba(42, 95, 162, 0.1);
+        color: #1f67c8;
+        cursor: pointer;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 800;
+        padding: 10px 16px;
+      }
+
+      @media (max-width: 860px) {
+        main {
+          width: min(100% - 28px, 620px);
+        }
+
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+
+        .demo-image {
+          min-height: 280px;
+          border-radius: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="home-link" href="../index.html">返回首页</a>
+    <main>
+      <header>
+        <h1>ImageClickActivation 图片点按</h1>
+        <p class="intro">在图片区域移动并点击 AI 光标，点击点会出现 Figma 样式的蓝色柔焦反馈，并触发局部识别状态。</p>
+      </header>
+
+      <section class="workspace">
+        <div class="image-shell">
+          <div class="demo-image" data-ai-image-click>
+            <img src="../assets/living-room-click-target.png" alt="" />
+          </div>
+        </div>
+
+        <aside class="side-panel" aria-live="polite">
+          <strong>图片识别状态</strong>
+          <p data-status>移动到图片上，点击任意局部区域查看 AI 光标点击反馈。</p>
+        </aside>
+      </section>
+
+      <div class="actions">
+        <button type="button" data-clear>清空效果</button>
+        <button type="button" data-demo-click>模拟点击图片主体</button>
+      </div>
+    </main>
+
+    <script src="../dist/ai-water-interactions.js?v=image-click-3"></script>
+    <script>
+      const target = document.querySelector("[data-ai-image-click]");
+      const status = document.querySelector("[data-status]");
+      const imageClick = AIWater.createImageClickActivation({
+        target,
+        showStatus: false,
+        onActivate({ x, y }) {
+          status.textContent = `正在识别图片局部区域：x ${Math.round(x)} / y ${Math.round(y)}。`;
+        },
+        onFinish() {
+          status.textContent = "识别完成，可继续进行解释、局部编辑或生成。";
+        }
+      });
+
+      document.querySelector("[data-clear]").addEventListener("click", () => {
+        imageClick.clear();
+        status.textContent = "移动到图片上，点击任意局部区域查看 AI 光标点击反馈。";
+      });
+
+      document.querySelector("[data-demo-click]").addEventListener("click", () => {
+        const rect = target.getBoundingClientRect();
+        imageClick.activate({
+          x: rect.width * 0.6,
+          y: rect.height * 0.54,
+          localX: rect.width * 0.6,
+          localY: rect.height * 0.54
+        });
+      });
+    </script>
+  </body>
+</html>

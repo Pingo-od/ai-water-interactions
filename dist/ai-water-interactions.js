@@ -161,6 +161,23 @@
     }
   };
 
+  const IMAGE_CLICK_DEFAULTS = {
+    classPrefix: "aiw",
+    target: null,
+    cursorAssetUrl: "../assets/ai-cursor.svg",
+    cursorWidth: 133,
+    cursorHeight: 131,
+    cursorHotspotX: 50,
+    cursorHotspotY: 37,
+    pointSize: 78,
+    effectDuration: 820,
+    clearDelay: 860,
+    label: "图片区域已识别",
+    showStatus: false,
+    onActivate: null,
+    onFinish: null
+  };
+
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
   }
@@ -1935,6 +1952,176 @@
     }
   }
 
+  class ImageClickActivation {
+    constructor(options = {}) {
+      this.options = { ...IMAGE_CLICK_DEFAULTS, ...options };
+      this.target = typeof this.options.target === "string" ? document.querySelector(this.options.target) : this.options.target;
+      if (!this.target) {
+        throw new Error("ImageClickActivation requires a target element.");
+      }
+
+      this.activeEffects = [];
+      this.finishTimer = 0;
+      this.clearTimer = 0;
+      this.lastPoint = { x: 0, y: 0 };
+
+      this.layer = document.createElement("div");
+      this.layer.className = `${this.options.classPrefix}-image-click-layer`;
+      this.cursor = document.createElement("img");
+      this.cursor.className = `${this.options.classPrefix}-image-click-cursor`;
+      this.cursor.src = this.options.cursorAssetUrl;
+      this.cursor.width = this.options.cursorWidth;
+      this.cursor.height = this.options.cursorHeight;
+      this.cursor.alt = "";
+      this.cursor.setAttribute("aria-hidden", "true");
+      this.layer.append(this.cursor);
+      document.body.append(this.layer);
+
+      this.field = document.createElement("div");
+      this.field.className = `${this.options.classPrefix}-image-click-field`;
+      this.field.innerHTML = `
+        <div class="${this.options.classPrefix}-image-click-status" aria-live="polite">${this.options.label}</div>
+      `;
+
+      const computedPosition = window.getComputedStyle(this.target).position;
+      this.addedHostClass = computedPosition === "static";
+      if (this.addedHostClass) this.target.classList.add(`${this.options.classPrefix}-image-click-host`);
+      this.target.append(this.field);
+      this.field.style.setProperty("--aiw-image-click-point-size", `${this.options.pointSize}px`);
+      if (!this.options.showStatus) this.field.classList.add("is-status-hidden");
+
+      this.onPointerEnter = this.onPointerEnter.bind(this);
+      this.onPointerMove = this.onPointerMove.bind(this);
+      this.onPointerDown = this.onPointerDown.bind(this);
+      this.onPointerUp = this.onPointerUp.bind(this);
+      this.onPointerLeave = this.onPointerLeave.bind(this);
+      this.onPointerCancel = this.onPointerCancel.bind(this);
+
+      this.target.addEventListener("pointerenter", this.onPointerEnter);
+      this.target.addEventListener("pointermove", this.onPointerMove);
+      this.target.addEventListener("pointerdown", this.onPointerDown);
+      window.addEventListener("pointerup", this.onPointerUp);
+      this.target.addEventListener("pointerleave", this.onPointerLeave);
+      this.target.addEventListener("pointercancel", this.onPointerCancel);
+    }
+
+    setPoint(event) {
+      const rect = this.target.getBoundingClientRect();
+      const x = clamp(event.clientX, rect.left, rect.right);
+      const y = clamp(event.clientY, rect.top, rect.bottom);
+      const localX = x - rect.left;
+      const localY = y - rect.top;
+      this.lastPoint = { x, y, localX, localY };
+
+      this.layer.style.setProperty("--aiw-image-click-cursor-x", `${x - this.options.cursorHotspotX}px`);
+      this.layer.style.setProperty("--aiw-image-click-cursor-y", `${y - this.options.cursorHotspotY}px`);
+      this.field.style.setProperty("--aiw-image-click-x", `${localX}px`);
+      this.field.style.setProperty("--aiw-image-click-y", `${localY}px`);
+      return this.lastPoint;
+    }
+
+    showCursor(event) {
+      if (event) this.setPoint(event);
+      this.layer.classList.add("is-visible");
+      this.target.classList.add(`${this.options.classPrefix}-image-click-target-active`);
+    }
+
+    hideCursor() {
+      this.layer.classList.remove("is-visible", "is-pressing");
+      this.target.classList.remove(`${this.options.classPrefix}-image-click-target-active`);
+    }
+
+    onPointerEnter(event) {
+      this.showCursor(event);
+    }
+
+    onPointerMove(event) {
+      this.showCursor(event);
+    }
+
+    onPointerDown(event) {
+      this.showCursor(event);
+      this.layer.classList.add("is-pressing");
+      this.activate(event);
+    }
+
+    onPointerUp() {
+      this.layer.classList.remove("is-pressing");
+    }
+
+    onPointerLeave() {
+      this.hideCursor();
+    }
+
+    onPointerCancel() {
+      this.hideCursor();
+    }
+
+    activate(eventOrPoint) {
+      const point = eventOrPoint && "clientX" in eventOrPoint
+        ? this.setPoint(eventOrPoint)
+        : eventOrPoint || this.lastPoint;
+      const localX = typeof point.localX === "number" ? point.localX : point.x;
+      const localY = typeof point.localY === "number" ? point.localY : point.y;
+      this.field.style.setProperty("--aiw-image-click-x", `${localX}px`);
+      this.field.style.setProperty("--aiw-image-click-y", `${localY}px`);
+
+      window.clearTimeout(this.finishTimer);
+      window.clearTimeout(this.clearTimer);
+      this.field.classList.remove("is-complete");
+      this.field.classList.add("is-active");
+
+      const pulse = document.createElement("span");
+      pulse.className = `${this.options.classPrefix}-image-click-point`;
+      pulse.style.left = `${localX}px`;
+      pulse.style.top = `${localY}px`;
+      pulse.style.setProperty("--aiw-image-click-duration", `${this.options.effectDuration}ms`);
+      this.field.append(pulse);
+      this.activeEffects.push(pulse);
+      window.setTimeout(() => pulse.remove(), this.options.effectDuration + 160);
+
+      if (typeof this.options.onActivate === "function") {
+        this.options.onActivate({ x: localX, y: localY, rect: this.target.getBoundingClientRect() });
+      }
+
+      this.finishTimer = window.setTimeout(() => {
+        if (this.options.showStatus) this.field.classList.add("is-complete");
+        if (typeof this.options.onFinish === "function") {
+          this.options.onFinish({ x: localX, y: localY, rect: this.target.getBoundingClientRect() });
+        }
+      }, Math.round(this.options.effectDuration * 0.58));
+
+      this.clearTimer = window.setTimeout(() => {
+        this.field.classList.remove("is-active", "is-complete");
+      }, this.options.clearDelay);
+
+      return this;
+    }
+
+    clear() {
+      window.clearTimeout(this.finishTimer);
+      window.clearTimeout(this.clearTimer);
+      this.field.classList.remove("is-active", "is-complete");
+      this.activeEffects.forEach(effect => effect.remove());
+      this.activeEffects = [];
+      return this;
+    }
+
+    destroy() {
+      this.clear();
+      this.target.removeEventListener("pointerenter", this.onPointerEnter);
+      this.target.removeEventListener("pointermove", this.onPointerMove);
+      this.target.removeEventListener("pointerdown", this.onPointerDown);
+      window.removeEventListener("pointerup", this.onPointerUp);
+      this.target.removeEventListener("pointerleave", this.onPointerLeave);
+      this.target.removeEventListener("pointercancel", this.onPointerCancel);
+      if (this.addedHostClass) this.target.classList.remove(`${this.options.classPrefix}-image-click-host`);
+      this.target.classList.remove(`${this.options.classPrefix}-image-click-target-active`);
+      this.layer.remove();
+      this.field.remove();
+    }
+  }
+
   window.AIWater = window.AIWater || {};
   window.AIWater.AICursor = AICursor;
   window.AIWater.CursorTrigger = CursorTrigger;
@@ -1945,6 +2132,7 @@
   window.AIWater.TextSelectionGeneration = TextSelectionGeneration;
   window.AIWater.TableSwipeMerge = TableSwipeMerge;
   window.AIWater.ProcessingGenerationBar = ProcessingGenerationBar;
+  window.AIWater.ImageClickActivation = ImageClickActivation;
   window.AIWater.createCursor = function createCursor(options) {
     return new AICursor(options);
   };
@@ -1971,5 +2159,8 @@
   };
   window.AIWater.createProcessingGenerationBar = function createProcessingGenerationBar(options) {
     return new ProcessingGenerationBar(options);
+  };
+  window.AIWater.createImageClickActivation = function createImageClickActivation(options) {
+    return new ImageClickActivation(options);
   };
 })();
