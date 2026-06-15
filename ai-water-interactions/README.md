@@ -103,6 +103,36 @@
 - `bubble.hide()`: 隐藏胶囊。
 - `bubble.destroy()`: 销毁胶囊。
 
+## WaterRippleLayer
+
+负责展示全屏水相波纹层。当前 P0-4 按 `tianxi-system-behaviors-team-morph-standalone(2).html` 中「01 唤醒」移植：每一条水波纹都从窗口底部中心向外扩散，并叠加原 demo 的折射、回弹、焦散和光环计算。
+
+```html
+<script>
+  const ripple = AIWater.createWaterRippleLayer({
+    fullScreen: true,
+    scale: 0.54,
+    sourceX: 0.5,
+    sourceY: 1.06,
+    autoPlay: true,
+    loop: true
+  });
+
+  ripple.play();
+  ripple.stop();
+</script>
+```
+
+- `AIWater.createWaterRippleLayer(options)`: 创建水波层。
+- `scale`: 设置水波视觉比例，默认 `0.54`。只影响波纹体量和能量，不限制最终扩散范围。
+- `ripple.setBackground(drawFn)`: 可选背景采样源。需要真实背景形变时传入同一个背景绘制函数；不传时组件保持独立透明覆盖。
+- `ripple.setScale(value)`: 设置水波整体比例，建议范围 `0.45-1.1`。
+- `ripple.play()`: 播放一次唤醒扩散。
+- `ripple.start()`: 开始自动循环。
+- `ripple.stop()`: 停止并清空画布。
+- `ripple.destroy()`: 销毁水波层。
+- `background: "demo"`: 仅用于单独展示时启用内置蓝色背景；正式嵌入时不要设置。
+
 ### CursorTrigger 参数
 
 - `shakeThreshold`: 触发前需要识别到的方向反转次数。

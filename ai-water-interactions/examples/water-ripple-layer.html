@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Water Ripple Layer</title>
+    <link rel="stylesheet" href="../dist/ai-water-interactions.css" />
+    <style>
+      :root {
+        font-family: "SF Pro Display", "PingFang SC", "Noto Sans SC", Arial, sans-serif;
+        color: var(--demo-text, rgba(255, 255, 255, 0.86));
+        background: #06070a;
+        --demo-bg:
+          linear-gradient(135deg, #2d3035 0%, #777a7f 48%, #d5d6d8 100%);
+        --demo-line: rgba(255, 255, 255, 0.2);
+        --demo-text: rgba(255, 255, 255, 0.82);
+        --demo-muted: rgba(255, 255, 255, 0.62);
+        --demo-control-bg: rgba(12, 16, 22, 0.52);
+        --demo-control-border: rgba(255, 255, 255, 0.16);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        overflow: hidden;
+      }
+
+      .background-surface {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .home-link {
+        position: fixed;
+        left: 24px;
+        top: 24px;
+        z-index: 20;
+        border: 1px solid var(--demo-control-border);
+        border-radius: 999px;
+        background: var(--demo-control-bg);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+        color: var(--demo-text);
+        font-size: 14px;
+        font-weight: 800;
+        padding: 9px 14px;
+        text-decoration: none;
+        backdrop-filter: blur(18px);
+      }
+
+      main {
+        position: relative;
+        z-index: 1;
+        min-height: 100vh;
+        width: min(980px, calc(100% - 48px));
+        margin: 0 auto;
+        display: grid;
+        align-content: center;
+        gap: 28px;
+        padding: 80px 32px 120px;
+      }
+
+      h1,
+      p,
+      ul {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 30px;
+        letter-spacing: 0;
+      }
+
+      p {
+        color: var(--demo-muted);
+        font-size: 18px;
+        line-height: 1.6;
+      }
+
+      .demo-copy {
+        display: grid;
+        gap: 18px;
+        max-width: 680px;
+      }
+
+      .mock-content {
+        display: grid;
+        gap: 14px;
+        max-width: 720px;
+        color: rgba(23, 32, 42, 0.48);
+        font-size: 16px;
+        line-height: 1.55;
+        padding: 0;
+        list-style: none;
+      }
+
+      .mock-content li {
+        height: 13px;
+        border-radius: 999px;
+        background: var(--demo-line);
+      }
+
+      .mock-content li:nth-child(1) {
+        width: 76%;
+      }
+
+      .mock-content li:nth-child(2) {
+        width: 94%;
+      }
+
+      .mock-content li:nth-child(3) {
+        width: 68%;
+      }
+
+      .mock-content li:nth-child(4) {
+        width: 82%;
+      }
+
+      .actions {
+        position: fixed;
+        left: 50%;
+        bottom: 32px;
+        z-index: 20;
+        display: flex;
+        flex-wrap: wrap;
+        transform: translateX(-50%);
+        justify-content: center;
+        gap: 12px;
+      }
+
+      button {
+        border: 1px solid var(--demo-control-border);
+        border-radius: 999px;
+        background: var(--demo-control-bg);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+        color: var(--demo-text);
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+        padding: 10px 18px;
+        backdrop-filter: blur(18px);
+      }
+
+      .background-panel {
+        position: fixed;
+        right: 24px;
+        top: 24px;
+        z-index: 20;
+        width: min(360px, calc(100vw - 48px));
+        display: grid;
+        gap: 12px;
+        padding: 14px;
+        border: 1px solid var(--demo-control-border);
+        border-radius: 18px;
+        background: var(--demo-control-bg);
+        box-shadow: 0 18px 48px rgba(0, 0, 0, 0.16);
+        color: var(--demo-text);
+        backdrop-filter: blur(22px);
+      }
+
+      .background-panel strong {
+        font-size: 14px;
+      }
+
+      .preset-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .preset-swatch {
+        min-width: 0;
+        height: 42px;
+        padding: 0;
+        border-radius: 12px;
+        background: var(--swatch);
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+      }
+
+      .preset-swatch.is-active {
+        outline: 2px solid rgba(255, 255, 255, 0.82);
+        outline-offset: 2px;
+      }
+
+      .upload-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        color: var(--demo-muted);
+        font-size: 12px;
+      }
+
+      .scale-control {
+        display: grid;
+        gap: 8px;
+        color: var(--demo-muted);
+        font-size: 12px;
+      }
+
+      .scale-control-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .scale-control output {
+        color: var(--demo-text);
+        font-variant-numeric: tabular-nums;
+        font-weight: 800;
+      }
+
+      .scale-control input {
+        width: 100%;
+        accent-color: currentColor;
+      }
+
+      .upload-row input {
+        max-width: 190px;
+        color: var(--demo-muted);
+        font: inherit;
+        font-size: 12px;
+      }
+
+      @media (max-width: 720px) {
+        .background-panel {
+          left: 24px;
+          right: 24px;
+          top: 76px;
+          width: auto;
+        }
+
+        main {
+          padding-top: 220px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas class="background-surface" data-background-surface aria-hidden="true"></canvas>
+    <a class="home-link" href="../index.html">返回首页</a>
+    <section class="background-panel" aria-label="背景测试">
+      <strong>背景测试</strong>
+      <div class="preset-grid" data-background-presets></div>
+      <label class="upload-row">
+        <span>上传图片</span>
+        <input type="file" accept="image/*" data-bg-upload />
+      </label>
+      <label class="scale-control">
+        <span class="scale-control-head">
+          <span>水波比例</span>
+          <output data-scale-output>54%</output>
+        </span>
+        <input type="range" min="20" max="110" step="1" value="54" data-ripple-scale />
+      </label>
+    </section>
+    <main>
+      <div class="demo-copy">
+        <h1>WaterRippleLayer 水相波纹</h1>
+        <p>全屏透明覆盖层。水波从窗口底部中心向外扩散，作用在当前页面之上，不携带蓝底或静态示意图。</p>
+      </div>
+      <ul class="mock-content" aria-hidden="true">
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+      </ul>
+      <div class="actions">
+        <button type="button" data-play>播放一次</button>
+        <button type="button" data-loop>自动循环</button>
+        <button type="button" data-stop>停止/清空</button>
+      </div>
+    </main>
+
+    <script src="../dist/ai-water-interactions.js"></script>
+    <script>
+      const backgroundPresets = [
+        {
+          id: "black",
+          name: "黑",
+          swatch: "linear-gradient(135deg, #020307, #171a22)",
+          bg: "linear-gradient(135deg, #020307 0%, #10131a 48%, #222631 100%)",
+          stops: ["#020307", "#10131a", "#222631"],
+          line: "rgba(255,255,255,0.16)",
+          text: "rgba(255,255,255,0.72)",
+          muted: "rgba(255,255,255,0.58)",
+          panel: "rgba(12,16,22,0.58)",
+          border: "rgba(255,255,255,0.16)"
+        },
+        {
+          id: "white",
+          name: "白",
+          swatch: "linear-gradient(135deg, #f7f7f4, #d8d8d2)",
+          bg: "linear-gradient(135deg, #f8f8f4 0%, #e7e7e1 48%, #cfcfc8 100%)",
+          stops: ["#f8f8f4", "#e7e7e1", "#cfcfc8"],
+          line: "rgba(0,0,0,0.18)",
+          text: "rgba(0,0,0,0.72)",
+          muted: "rgba(0,0,0,0.58)",
+          panel: "rgba(255,255,255,0.72)",
+          border: "rgba(0,0,0,0.14)"
+        },
+        {
+          id: "gray",
+          name: "灰",
+          swatch: "linear-gradient(135deg, #2d3035, #85878b, #d4d5d6)",
+          bg: "linear-gradient(135deg, #2d3035 0%, #777a7f 48%, #d5d6d8 100%)",
+          stops: ["#2d3035", "#777a7f", "#d5d6d8"],
+          line: "rgba(255,255,255,0.2)",
+          text: "rgba(255,255,255,0.74)",
+          muted: "rgba(255,255,255,0.6)",
+          panel: "rgba(15,18,24,0.48)",
+          border: "rgba(255,255,255,0.16)"
+        },
+        {
+          id: "mono",
+          name: "黑白",
+          swatch: "linear-gradient(135deg, #070707 0%, #efefef 100%)",
+          bg: "linear-gradient(135deg, #050505 0%, #555 48%, #f0f0f0 100%)",
+          stops: ["#050505", "#555", "#f0f0f0"],
+          line: "rgba(255,255,255,0.2)",
+          text: "rgba(255,255,255,0.78)",
+          muted: "rgba(255,255,255,0.6)",
+          panel: "rgba(10,10,12,0.52)",
+          border: "rgba(255,255,255,0.16)"
+        },
+        {
+          id: "blue",
+          name: "蓝",
+          swatch: "linear-gradient(135deg, #0d2336, #2f7fa7)",
+          bg: "linear-gradient(135deg, #0d2336 0%, #23506c 48%, #2f7fa7 100%)",
+          stops: ["#0d2336", "#23506c", "#2f7fa7"],
+          line: "rgba(255,255,255,0.18)",
+          text: "rgba(255,255,255,0.76)",
+          muted: "rgba(255,255,255,0.6)",
+          panel: "rgba(9,24,36,0.54)",
+          border: "rgba(255,255,255,0.16)"
+        },
+        {
+          id: "green",
+          name: "绿",
+          swatch: "linear-gradient(135deg, #12231c, #447d65)",
+          bg: "linear-gradient(135deg, #12231c 0%, #275443 48%, #7ea38e 100%)",
+          stops: ["#12231c", "#275443", "#7ea38e"],
+          line: "rgba(255,255,255,0.16)",
+          text: "rgba(255,255,255,0.75)",
+          muted: "rgba(255,255,255,0.6)",
+          panel: "rgba(11,28,22,0.54)",
+          border: "rgba(255,255,255,0.16)"
+        },
+        {
+          id: "warm",
+          name: "暖",
+          swatch: "linear-gradient(135deg, #26170f, #9b6a43)",
+          bg: "linear-gradient(135deg, #26170f 0%, #70482b 48%, #b9926a 100%)",
+          stops: ["#26170f", "#70482b", "#b9926a"],
+          line: "rgba(255,255,255,0.15)",
+          text: "rgba(255,255,255,0.73)",
+          muted: "rgba(255,255,255,0.6)",
+          panel: "rgba(34,20,12,0.52)",
+          border: "rgba(255,255,255,0.15)"
+        },
+        {
+          id: "rose",
+          name: "玫",
+          swatch: "linear-gradient(135deg, #201522, #8e5b7e)",
+          bg: "linear-gradient(135deg, #201522 0%, #57324e 48%, #a67898 100%)",
+          stops: ["#201522", "#57324e", "#a67898"],
+          line: "rgba(255,255,255,0.16)",
+          text: "rgba(255,255,255,0.74)",
+          muted: "rgba(255,255,255,0.6)",
+          panel: "rgba(28,16,30,0.52)",
+          border: "rgba(255,255,255,0.16)"
+        }
+      ];
+
+      const root = document.documentElement;
+      const backgroundSurface = document.querySelector("[data-background-surface]");
+      const presetsRoot = document.querySelector("[data-background-presets]");
+      const upload = document.querySelector("[data-bg-upload]");
+      const scaleInput = document.querySelector("[data-ripple-scale]");
+      const scaleOutput = document.querySelector("[data-scale-output]");
+      let customImageUrl = "";
+      let currentBackgroundRenderer = null;
+      let uploadedImage = null;
+      let scalePreviewTimer = 0;
+
+      const ripple = AIWater.createWaterRippleLayer({
+        fullScreen: true,
+        autoPlay: true,
+        loop: true,
+        loopDelay: 520,
+        duration: 3600,
+        sourceX: 0.5,
+        sourceY: 1.06,
+        opacity: 0.92,
+        scale: Number(scaleInput.value) / 100
+      });
+
+      function drawPresetBackground(preset) {
+        return (ctx, width, height) => {
+          const gradient = ctx.createLinearGradient(0, 0, width, height);
+          gradient.addColorStop(0, preset.stops[0]);
+          gradient.addColorStop(0.48, preset.stops[1]);
+          gradient.addColorStop(1, preset.stops[2]);
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, width, height);
+
+          ctx.save();
+          ctx.strokeStyle = preset.line;
+          ctx.lineWidth = 1;
+          ctx.globalAlpha = 0.48;
+          for (let x = 0; x < width; x += 72) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, height);
+            ctx.stroke();
+          }
+          for (let y = 0; y < height; y += 72) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(width, y);
+            ctx.stroke();
+          }
+          ctx.restore();
+
+          ctx.save();
+          ctx.fillStyle = preset.text;
+          ctx.globalAlpha = 0.3;
+          ctx.font = `900 ${Math.max(28, width * 0.06)}px "SF Pro Display", "PingFang SC", sans-serif`;
+          ctx.fillText("RIPPLE REFRACTION", width * 0.08, height * 0.18);
+          ctx.restore();
+        };
+      }
+
+      function drawImageBackground(image) {
+        return (ctx, width, height) => {
+          const fit = Math.max(width / image.width, height / image.height);
+          const drawWidth = image.width * fit;
+          const drawHeight = image.height * fit;
+          ctx.drawImage(image, (width - drawWidth) * 0.5, (height - drawHeight) * 0.5, drawWidth, drawHeight);
+        };
+      }
+
+      function renderVisibleBackground() {
+        if (!currentBackgroundRenderer) return;
+        const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        backgroundSurface.width = Math.max(1, Math.round(width * dpr));
+        backgroundSurface.height = Math.max(1, Math.round(height * dpr));
+        const ctx = backgroundSurface.getContext("2d");
+        ctx.save();
+        ctx.scale(dpr, dpr);
+        currentBackgroundRenderer(ctx, width, height);
+        ctx.restore();
+      }
+
+      function applyBackgroundRenderer(renderer) {
+        currentBackgroundRenderer = renderer;
+        renderVisibleBackground();
+        ripple.setBackground(renderer);
+      }
+
+      function scheduleScalePreview() {
+        window.clearTimeout(scalePreviewTimer);
+        scalePreviewTimer = window.setTimeout(() => {
+          ripple.looping = false;
+          ripple.play();
+        }, 180);
+      }
+
+      function setPreset(id) {
+        const preset = backgroundPresets.find(item => item.id === id) || backgroundPresets[0];
+        if (customImageUrl) {
+          URL.revokeObjectURL(customImageUrl);
+          customImageUrl = "";
+        }
+        uploadedImage = null;
+        document.body.classList.remove("has-custom-bg");
+        root.style.setProperty("--demo-line", preset.line);
+        root.style.setProperty("--demo-text", preset.text);
+        root.style.setProperty("--demo-muted", preset.muted);
+        root.style.setProperty("--demo-control-bg", preset.panel);
+        root.style.setProperty("--demo-control-border", preset.border);
+        presetsRoot.querySelectorAll(".preset-swatch").forEach(button => {
+          button.classList.toggle("is-active", button.dataset.preset === preset.id);
+        });
+        applyBackgroundRenderer(drawPresetBackground(preset));
+      }
+
+      function renderBackgroundPresets() {
+        const fragment = document.createDocumentFragment();
+        for (const preset of backgroundPresets) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "preset-swatch";
+          button.dataset.preset = preset.id;
+          button.style.setProperty("--swatch", preset.swatch);
+          button.setAttribute("aria-label", `切换到${preset.name}背景`);
+          button.title = preset.name;
+          button.addEventListener("click", () => {
+            if (upload) upload.value = "";
+            setPreset(preset.id);
+          });
+          fragment.append(button);
+        }
+        presetsRoot.append(fragment);
+      }
+
+      upload.addEventListener("change", event => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+
+        if (customImageUrl) URL.revokeObjectURL(customImageUrl);
+        const url = URL.createObjectURL(file);
+        customImageUrl = url;
+        document.body.classList.add("has-custom-bg");
+        root.style.setProperty("--demo-line", "rgba(255,255,255,0.18)");
+        root.style.setProperty("--demo-text", "rgba(255,255,255,0.86)");
+        root.style.setProperty("--demo-muted", "rgba(255,255,255,0.64)");
+        root.style.setProperty("--demo-control-bg", "rgba(8,10,14,0.54)");
+        root.style.setProperty("--demo-control-border", "rgba(255,255,255,0.16)");
+        presetsRoot.querySelectorAll(".preset-swatch").forEach(button => {
+          button.classList.remove("is-active");
+        });
+
+        const image = new Image();
+        image.onload = () => {
+          uploadedImage = image;
+          applyBackgroundRenderer(drawImageBackground(image));
+        };
+        image.src = url;
+      });
+
+      scaleInput.addEventListener("input", () => {
+        const value = Number(scaleInput.value);
+        scaleOutput.textContent = `${value}%`;
+        ripple.setScale(value / 100);
+        scheduleScalePreview();
+      });
+
+      document.querySelector("[data-play]").addEventListener("click", () => {
+        ripple.looping = false;
+        ripple.play();
+      });
+
+      document.querySelector("[data-loop]").addEventListener("click", () => {
+        ripple.start();
+      });
+
+      document.querySelector("[data-stop]").addEventListener("click", () => {
+        ripple.stop();
+      });
+
+      renderBackgroundPresets();
+      setPreset("gray");
+      window.addEventListener("resize", () => {
+        renderVisibleBackground();
+        if (currentBackgroundRenderer) ripple.setBackground(currentBackgroundRenderer);
+      });
+    </script>
+  </body>
+</html>
