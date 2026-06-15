@@ -242,6 +242,35 @@
 - `processing.stop()`: 停止播放。
 - `processing.destroy()`: 销毁组件。
 
+## ImageClickActivation
+
+负责图片元素上的 AI 光标点按反馈。光标进入目标区域后切换为自定义 AI 光标，点击时在局部位置显示 Figma 样式的蓝色柔焦识别点，并可通过回调连接后续“解释/局部编辑/生成”演示。
+
+```html
+<link rel="stylesheet" href="./dist/ai-water-interactions.css" />
+
+<div data-ai-image-click>
+  <img src="./demo-image.png" alt="" />
+</div>
+
+<script src="./dist/ai-water-interactions.js"></script>
+<script>
+  const imageClick = AIWater.createImageClickActivation({
+    target: "[data-ai-image-click]",
+    label: "识别完成"
+  });
+</script>
+```
+
+- `AIWater.createImageClickActivation(options)`: 创建图片点按交互组件。
+- `target`: 要启用 AI 点按反馈的图片或图片容器。
+- `label`: 点击完成后显示的状态文字。
+- `showStatus`: 是否显示状态胶囊，默认 `false`。需要胶囊反馈时，建议组合前面的 `AICommandChip` 组件。
+- `onActivate({ x, y, rect })`: 点击反馈开始时触发。
+- `onFinish({ x, y, rect })`: 识别反馈完成时触发。
+- `imageClick.clear()`: 清空当前点击反馈。
+- `imageClick.destroy()`: 销毁组件。
+
 ### CursorTrigger 参数
 
 - `shakeThreshold`: 触发前需要识别到的方向反转次数。

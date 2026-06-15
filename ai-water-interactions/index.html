@@ -274,6 +274,38 @@
         z-index: 1;
       }
 
+      .preview.image-click::before {
+        content: "";
+        position: absolute;
+        left: 56%;
+        top: 44%;
+        width: 78px;
+        height: 78px;
+        border-radius: 999px;
+        background:
+          radial-gradient(circle, rgba(42, 116, 246, 0.86) 0 14%, rgba(59, 131, 247, 0.58) 28%, rgba(96, 160, 255, 0.24) 48%, transparent 74%);
+        box-shadow:
+          0 0 24px rgba(59, 131, 247, 0.36),
+          0 0 46px rgba(90, 156, 255, 0.22);
+        filter: blur(4px);
+        transform: translate(-50%, -50%);
+        z-index: 1;
+      }
+
+      .preview.image-click .cursor-mark {
+        position: absolute;
+        left: 64%;
+        top: 56%;
+        z-index: 2;
+        width: 0;
+        height: 0;
+        border-left: 18px solid rgba(255, 255, 255, 0.95);
+        border-top: 11px solid transparent;
+        border-bottom: 11px solid transparent;
+        filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.48));
+        transform: rotate(44deg);
+      }
+
       .meta {
         display: grid;
         gap: 10px;
@@ -527,13 +559,13 @@
           </div>
         </article>
 
-        <article class="card">
+        <article class="card is-ready">
           <div class="card-head">
             <h2>09 图片点按</h2>
-            <span class="badge pending">待实现</span>
+            <span class="badge">已接入</span>
           </div>
           <p>在图片元素上点按或长按 AI 光标，激活图片识别、解释、局部生成等交互。</p>
-          <div class="preview edge"></div>
+          <div class="preview image-click"><span class="cursor-mark"></span></div>
           <div class="meta">
             <strong>场景</strong>
             <div class="chips">
@@ -543,7 +575,7 @@
             </div>
           </div>
           <div class="card-actions">
-            <a class="demo-link is-disabled" href="#">待接入</a>
+            <a class="demo-link" href="./examples/image-click-activation.html">查看 demo</a>
           </div>
         </article>
       </section>
