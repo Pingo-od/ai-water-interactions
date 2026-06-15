@@ -100,6 +100,27 @@
     }
   };
 
+  const TEXT_SELECTION_DEFAULTS = {
+    classPrefix: "aiw",
+    target: null,
+    cursorAssetUrl: "../assets/ai-cursor.svg",
+    cursorWidth: 133,
+    cursorHeight: 131,
+    cursorHotspotX: 50,
+    cursorHotspotY: 37,
+    minDragDistance: 8,
+    selectionPaddingX: 10,
+    selectionPaddingY: 7,
+    markHeight: 32,
+    actionText: "正在生成",
+    resultText: "已根据选中文本生成新的表达。",
+    typingDelay: 720,
+    finishDelay: 1800,
+    onSelect: null,
+    onGenerate: null,
+    onFinish: null
+  };
+
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
   }
@@ -1169,6 +1190,232 @@
     }
   }
 
+  class TextSelectionGeneration {
+    constructor(options = {}) {
+      this.options = { ...TEXT_SELECTION_DEFAULTS, ...options };
+      this.target = typeof this.options.target === "string" ? document.querySelector(this.options.target) : this.options.target;
+      this.target = this.target || document.body;
+      this.dragging = false;
+      this.anchor = null;
+      this.currentRange = null;
+      this.marks = [];
+      this.finishTimer = 0;
+      this.lastPoint = { x: window.innerWidth * 0.5, y: window.innerHeight * 0.5 };
+
+      this.layer = document.createElement("div");
+      this.layer.className = `${this.options.classPrefix}-text-selection-layer`;
+      this.layer.innerHTML = `
+        <div class="${this.options.classPrefix}-text-selection-marks" aria-hidden="true"></div>
+        <div class="${this.options.classPrefix}-text-selection-cursor-wrap" aria-hidden="true">
+          <img class="${this.options.classPrefix}-text-selection-cursor" src="${this.options.cursorAssetUrl}" alt="" />
+          <span class="${this.options.classPrefix}-text-selection-cursor-glow"></span>
+        </div>
+      `;
+      document.body.append(this.layer);
+
+      this.marksRoot = this.layer.querySelector(`.${this.options.classPrefix}-text-selection-marks`);
+      this.cursorWrap = this.layer.querySelector(`.${this.options.classPrefix}-text-selection-cursor-wrap`);
+      this.cursor = this.layer.querySelector(`.${this.options.classPrefix}-text-selection-cursor`);
+      this.cursor.style.width = `${this.options.cursorWidth}px`;
+      this.cursor.style.height = `${this.options.cursorHeight}px`;
+
+      this.onPointerDown = this.onPointerDown.bind(this);
+      this.onPointerMove = this.onPointerMove.bind(this);
+      this.onPointerUp = this.onPointerUp.bind(this);
+      this.onResize = this.onResize.bind(this);
+
+      this.target.addEventListener("pointerdown", this.onPointerDown);
+      window.addEventListener("resize", this.onResize);
+      window.addEventListener("scroll", this.onResize, true);
+    }
+
+    pointToCaret(x, y) {
+      if (document.caretRangeFromPoint) {
+        const range = document.caretRangeFromPoint(x, y);
+        if (!range) return null;
+        return { node: range.startContainer, offset: range.startOffset };
+      }
+      if (document.caretPositionFromPoint) {
+        const position = document.caretPositionFromPoint(x, y);
+        if (!position) return null;
+        return { node: position.offsetNode, offset: position.offset };
+      }
+      return null;
+    }
+
+    compareCaret(a, b) {
+      const aRange = document.createRange();
+      const bRange = document.createRange();
+      aRange.setStart(a.node, a.offset);
+      aRange.collapse(true);
+      bRange.setStart(b.node, b.offset);
+      bRange.collapse(true);
+      const result = aRange.compareBoundaryPoints(Range.START_TO_START, bRange);
+      aRange.detach();
+      bRange.detach();
+      return result;
+    }
+
+    rangeFromPoints(a, b) {
+      if (!a || !b) return null;
+      const range = document.createRange();
+      if (this.compareCaret(a, b) <= 0) {
+        range.setStart(a.node, a.offset);
+        range.setEnd(b.node, b.offset);
+      } else {
+        range.setStart(b.node, b.offset);
+        range.setEnd(a.node, a.offset);
+      }
+      return range.collapsed ? null : range;
+    }
+
+    isInsideTarget(point) {
+      const node = point && point.node;
+      return Boolean(node && this.target.contains(node.nodeType === Node.TEXT_NODE ? node.parentNode : node));
+    }
+
+    moveCursor(x, y) {
+      this.lastPoint = { x, y };
+      this.cursorWrap.style.setProperty("--aiw-selection-cursor-x", `${x - this.options.cursorHotspotX}px`);
+      this.cursorWrap.style.setProperty("--aiw-selection-cursor-y", `${y - this.options.cursorHotspotY}px`);
+    }
+
+    clearMarks() {
+      this.marksRoot.replaceChildren();
+      this.marks = [];
+    }
+
+    syncMarks(rects) {
+      while (this.marks.length < rects.length) {
+        const mark = document.createElement("span");
+        mark.className = `${this.options.classPrefix}-text-selection-mark`;
+        this.marksRoot.append(mark);
+        this.marks.push(mark);
+      }
+
+      while (this.marks.length > rects.length) {
+        const mark = this.marks.pop();
+        if (mark) mark.remove();
+      }
+
+      rects.forEach((rect, index) => {
+        const mark = this.marks[index];
+        const height = Math.max(this.options.markHeight, rect.height + this.options.selectionPaddingY * 2);
+        mark.style.left = `${rect.left - this.options.selectionPaddingX}px`;
+        mark.style.top = `${rect.top + rect.height * 0.5 - height * 0.5}px`;
+        mark.style.width = `${rect.width + this.options.selectionPaddingX * 2}px`;
+        mark.style.height = `${height}px`;
+      });
+    }
+
+    drawRange(range) {
+      if (!range) {
+        this.syncMarks([]);
+        return [];
+      }
+      const targetRect = this.target.getBoundingClientRect();
+      const rects = Array.from(range.getClientRects())
+        .filter(rect => rect.width > 2 && rect.height > 4)
+        .map(rect => {
+          const left = clamp(rect.left, targetRect.left, targetRect.right);
+          const right = clamp(rect.right, targetRect.left, targetRect.right);
+          return {
+            left,
+            top: rect.top,
+            width: Math.max(0, right - left),
+            height: rect.height
+          };
+        })
+        .filter(rect => rect.width > 2);
+
+      this.syncMarks(rects);
+      return rects;
+    }
+
+    getSelectedText() {
+      return this.currentRange ? this.currentRange.toString().trim() : "";
+    }
+
+    onPointerDown(event) {
+      if (event.button !== 0) return;
+      const point = this.pointToCaret(event.clientX, event.clientY);
+      if (!this.isInsideTarget(point)) return;
+      event.preventDefault();
+      this.dragging = true;
+      this.anchor = point;
+      this.currentRange = null;
+      this.startX = event.clientX;
+      this.startY = event.clientY;
+      this.target.setPointerCapture?.(event.pointerId);
+      this.layer.classList.add("is-selecting");
+      this.target.classList.add(`${this.options.classPrefix}-text-selection-target-active`);
+      window.clearTimeout(this.finishTimer);
+      this.clearMarks();
+      this.moveCursor(event.clientX, event.clientY);
+      window.addEventListener("pointermove", this.onPointerMove);
+      window.addEventListener("pointerup", this.onPointerUp, { once: true });
+    }
+
+    onPointerMove(event) {
+      if (!this.dragging) return;
+      event.preventDefault();
+      this.moveCursor(event.clientX, event.clientY);
+      const distance = Math.hypot(event.clientX - this.startX, event.clientY - this.startY);
+      if (distance < this.options.minDragDistance) return;
+      const point = this.pointToCaret(event.clientX, event.clientY);
+      if (!this.isInsideTarget(point)) return;
+      const range = this.rangeFromPoints(this.anchor, point);
+      this.currentRange = range;
+      const rects = this.drawRange(range);
+      if (typeof this.options.onSelect === "function") {
+        this.options.onSelect({ text: this.getSelectedText(), rects });
+      }
+    }
+
+    onPointerUp(event) {
+      this.dragging = false;
+      window.removeEventListener("pointermove", this.onPointerMove);
+      this.target.releasePointerCapture?.(event.pointerId);
+      this.layer.classList.remove("is-selecting");
+      this.target.classList.remove(`${this.options.classPrefix}-text-selection-target-active`);
+      const rects = this.currentRange ? this.drawRange(this.currentRange) : [];
+      if (rects.length) {
+        const payload = { text: this.getSelectedText(), rects };
+        if (typeof this.options.onGenerate === "function") {
+          this.options.onGenerate(payload);
+        }
+        window.clearTimeout(this.finishTimer);
+        this.finishTimer = window.setTimeout(() => {
+          if (typeof this.options.onFinish === "function") {
+            this.options.onFinish({ text: this.getSelectedText(), rects });
+          }
+        }, this.options.finishDelay);
+      } else {
+        this.clearMarks();
+      }
+    }
+
+    onResize() {
+      if (this.currentRange) this.drawRange(this.currentRange);
+    }
+
+    clear() {
+      this.currentRange = null;
+      this.clearMarks();
+      window.clearTimeout(this.finishTimer);
+      return this;
+    }
+
+    destroy() {
+      this.clear();
+      this.target.removeEventListener("pointerdown", this.onPointerDown);
+      window.removeEventListener("pointermove", this.onPointerMove);
+      window.removeEventListener("resize", this.onResize);
+      window.removeEventListener("scroll", this.onResize, true);
+      this.layer.remove();
+    }
+  }
+
   window.AIWater = window.AIWater || {};
   window.AIWater.AICursor = AICursor;
   window.AIWater.CursorTrigger = CursorTrigger;
@@ -1176,6 +1423,7 @@
   window.AIWater.VoiceInputBubble = VoiceInputBubble;
   window.AIWater.WaterRippleLayer = WaterRippleLayer;
   window.AIWater.EdgeGlowLayer = EdgeGlowLayer;
+  window.AIWater.TextSelectionGeneration = TextSelectionGeneration;
   window.AIWater.createCursor = function createCursor(options) {
     return new AICursor(options);
   };
@@ -1193,5 +1441,8 @@
   };
   window.AIWater.createEdgeGlowLayer = function createEdgeGlowLayer(options) {
     return new EdgeGlowLayer(options);
+  };
+  window.AIWater.createTextSelectionGeneration = function createTextSelectionGeneration(options) {
+    return new TextSelectionGeneration(options);
   };
 })();

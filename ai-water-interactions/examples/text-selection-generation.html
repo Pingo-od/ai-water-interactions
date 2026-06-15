@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Text Selection Generation</title>
-    <link rel="stylesheet" href="../dist/ai-water-interactions.css" />
+    <link rel="stylesheet" href="../dist/ai-water-interactions.css?v=text-selection-3" />
     <style>
       :root {
         font-family: "SF Pro Display", "PingFang SC", "Noto Sans SC", Arial, sans-serif;
@@ -22,14 +22,13 @@
       body {
         min-height: 100vh;
         margin: 0;
-        display: grid;
-        place-items: center;
       }
 
       .home-link {
         position: fixed;
         left: 24px;
         top: 24px;
+        z-index: 20;
         border: 1px solid rgba(37, 107, 181, 0.18);
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.82);
@@ -39,14 +38,17 @@
         font-weight: 800;
         padding: 9px 14px;
         text-decoration: none;
+        backdrop-filter: blur(18px);
       }
 
       main {
-        width: min(780px, calc(100% - 48px));
+        width: min(980px, calc(100% - 48px));
+        min-height: 100vh;
+        margin: 0 auto;
         display: grid;
-        gap: 18px;
-        text-align: center;
-        padding: 32px;
+        align-content: center;
+        gap: 24px;
+        padding: 92px 0;
       }
 
       h1,
@@ -59,62 +61,163 @@
         letter-spacing: 0;
       }
 
-      p {
+      .intro {
+        max-width: 720px;
         color: #5f6f7c;
         font-size: 18px;
-        line-height: 1.6;
+        line-height: 1.62;
       }
 
-      .mock-document {
-        margin-top: 16px;
-        display: grid;
-        gap: 14px;
+      .document-shell {
         border: 1px solid rgba(37, 107, 181, 0.14);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.86);
+        box-shadow: 0 22px 58px rgba(63, 91, 123, 0.12);
+        overflow: hidden;
+      }
+
+      .doc-toolbar {
+        height: 56px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: #e8f2ff;
+        padding: 0 28px;
+      }
+
+      .tool-dot {
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+        background: #3b83f7;
+        box-shadow: 34px 0 0 rgba(37, 107, 181, 0.22), 68px 0 0 rgba(37, 107, 181, 0.22);
+      }
+
+      .document {
+        padding: 34px 54px 48px;
+        color: #111827;
+        font-size: 18px;
+        line-height: 1.58;
+        user-select: none;
+      }
+
+      .document h2 {
+        margin: 28px 0 10px;
+        font-size: 24px;
+        letter-spacing: 0;
+      }
+
+      .document p {
+        margin: 0 0 16px;
+      }
+
+      .document strong {
+        font-weight: 900;
+      }
+
+      .result-panel {
+        display: grid;
+        gap: 10px;
+        max-width: 720px;
+        border: 1px solid rgba(35, 212, 123, 0.18);
         border-radius: 8px;
-        background: rgba(255, 255, 255, 0.78);
-        box-shadow: 0 18px 46px rgba(42, 95, 162, 0.1);
-        padding: 28px;
-        text-align: left;
+        background: rgba(255, 255, 255, 0.76);
+        box-shadow: 0 14px 36px rgba(31, 103, 200, 0.08);
+        padding: 18px 20px;
       }
 
-      .mock-line {
-        height: 14px;
+      .result-panel strong {
+        color: #167552;
+      }
+
+      .result-panel p {
+        color: #5f6f7c;
+        font-size: 15px;
+        line-height: 1.58;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      button {
+        border: 1px solid rgba(37, 107, 181, 0.18);
         border-radius: 999px;
-        background: rgba(37, 107, 181, 0.12);
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow: 0 10px 28px rgba(42, 95, 162, 0.1);
+        color: #1f67c8;
+        cursor: pointer;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 800;
+        padding: 10px 16px;
       }
 
-      .mock-line:nth-child(1) {
-        width: 72%;
-      }
+      @media (max-width: 720px) {
+        main {
+          width: min(100% - 28px, 620px);
+        }
 
-      .mock-line:nth-child(2) {
-        width: 94%;
-      }
-
-      .mock-line:nth-child(3) {
-        width: 68%;
-      }
-
-      .selection-hint {
-        width: 46%;
-        height: 28px;
-        border-radius: 999px;
-        background: linear-gradient(90deg, rgba(70, 192, 255, 0.28), rgba(121, 138, 255, 0.18));
-        box-shadow: 0 0 24px rgba(70, 192, 255, 0.18);
+        .document {
+          padding: 28px 24px 36px;
+          font-size: 16px;
+        }
       }
     </style>
   </head>
   <body>
     <a class="home-link" href="../index.html">返回首页</a>
     <main>
-      <h1>TextSelectionGeneration 划词生成</h1>
-      <p>这是 06 组件的演示入口占位页。后续会接入按住 AI 光标划选文字、水相选区和生成中状态。</p>
-      <section class="mock-document" aria-label="文本划选示意">
-        <span class="mock-line"></span>
-        <span class="selection-hint"></span>
-        <span class="mock-line"></span>
-        <span class="mock-line"></span>
+      <header>
+        <h1>TextSelectionGeneration 划词生成</h1>
+        <p class="intro">按住并拖过文本，蓝色水相选区会跟随光标实时出现，支持跨多行划词。松开后下方区域展示模拟生成结果。</p>
+      </header>
+
+      <section class="document-shell">
+        <div class="doc-toolbar" aria-hidden="true">
+          <span class="tool-dot"></span>
+        </div>
+        <article class="document" data-ai-text-selection>
+          <p><strong>The Vision:</strong> To help the new generation reduce financial anxiety by automating decision making around savings, bill payments, and subscription management.</p>
+          <h2>2.2 The Solution</h2>
+          <p>CentWise flips the model from Reactive to Proactive. We do not just show you what you spent; we tell you what you can safely spend today without compromising tomorrow's obligations.</p>
+          <p>The selected text can be rewritten, summarized, or expanded by the AI assistant while preserving the surrounding document context.</p>
+        </article>
       </section>
+
+      <section class="result-panel" aria-live="polite">
+        <strong>生成结果预览</strong>
+        <p data-result>拖选上方任意一段或跨多行文字，松开后这里会显示模拟生成结果。</p>
+      </section>
+
+      <div class="actions">
+        <button type="button" data-clear>清空选区</button>
+      </div>
     </main>
+
+    <script src="../dist/ai-water-interactions.js?v=text-selection-3"></script>
+    <script>
+      const result = document.querySelector("[data-result]");
+      const selection = AIWater.createTextSelectionGeneration({
+        target: "[data-ai-text-selection]",
+        actionText: "正在润色",
+        resultText: "生成完成",
+        onGenerate({ text }) {
+          result.textContent = text ? `正在基于「${text.slice(0, 42)}${text.length > 42 ? "..." : ""}」生成...` : "正在生成...";
+        },
+        onFinish({ text }) {
+          result.textContent = text
+            ? `已生成更清晰的表达：${text.slice(0, 72)}${text.length > 72 ? "..." : ""}`
+            : "已完成生成。";
+        }
+      });
+
+      document.querySelector("[data-clear]").addEventListener("click", () => {
+        selection.clear();
+        result.textContent = "拖选上方任意一段或跨多行文字，松开后这里会显示模拟生成结果。";
+      });
+    </script>
   </body>
 </html>
