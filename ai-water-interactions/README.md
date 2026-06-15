@@ -184,8 +184,39 @@
 - `target`: 要启用划词交互的文本容器。
 - `actionText`: 松开后生成气泡里的生成中文案。
 - `resultText`: 生成完成后的文案。
-- `textSelection.clear()`: 清空当前选区和生成气泡。
+- `textSelection.clear()`: 清空当前选区。
 - `textSelection.destroy()`: 销毁组件。
+
+## TableSwipeMerge
+
+负责在表格单元格上拖拽滑动，生成 Figma 样式的蓝色水相手绘轨迹，并识别需要合并/整理的表格范围。
+
+```html
+<table data-ai-table-merge>
+  <tr>
+    <td>Persona details</td>
+    <td>Pain Points</td>
+    <td>Goals</td>
+  </tr>
+</table>
+
+<script>
+  const tableMerge = AIWater.createTableSwipeMerge({
+    target: "[data-ai-table-merge]",
+    onMerge({ cells }) {
+      console.log(`合并 ${cells.length} 个单元格`);
+    }
+  });
+</script>
+```
+
+- `AIWater.createTableSwipeMerge(options)`: 创建表格滑动合并组件。
+- `target`: 要启用交互的表格或表格容器。
+- `onSelect({ cells, rect })`: 拖动过程中持续返回当前识别到的单元格范围。
+- `onMerge({ cells, rect })`: 松开光标后触发，表示进入合并/整理状态。
+- `onFinish({ cells, rect })`: 合并演示完成后的回调。
+- `tableMerge.clear()`: 清空当前选区和水相轨迹。
+- `tableMerge.destroy()`: 销毁组件。
 
 ### CursorTrigger 参数
 
