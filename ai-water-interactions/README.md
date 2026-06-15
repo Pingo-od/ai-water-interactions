@@ -218,6 +218,30 @@
 - `tableMerge.clear()`: 清空当前选区和水相轨迹。
 - `tableMerge.destroy()`: 销毁组件。
 
+## ProcessingGenerationBar
+
+负责展示划词生成过程中的“处理中”状态，视觉遵循 Figma 的蓝色柔焦胶囊条，动效保留横向水流、扫光和焦散处理效果。
+
+```html
+<link rel="stylesheet" href="./dist/ai-water-interactions.css" />
+
+<div data-processing-bar style="width:512px;height:52px"></div>
+
+<script src="./dist/ai-water-interactions.js"></script>
+<script>
+  const processing = AIWater.createProcessingGenerationBar({
+    target: "[data-processing-bar]"
+  });
+</script>
+```
+
+- `AIWater.createProcessingGenerationBar(options)`: 创建处理生成胶囊。
+- `target`: 要承载动效的容器。
+- `autoPlay`: 是否自动播放，默认 `true`。
+- `processing.start()`: 开始播放。
+- `processing.stop()`: 停止播放。
+- `processing.destroy()`: 销毁组件。
+
 ### CursorTrigger 参数
 
 - `shakeThreshold`: 触发前需要识别到的方向反转次数。

@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Processing Generation Bar</title>
+    <link rel="stylesheet" href="../dist/ai-water-interactions.css?v=processing-5" />
+    <style>
+      :root {
+        font-family: "SF Pro Display", "PingFang SC", "Noto Sans SC", Arial, sans-serif;
+        color: #17202a;
+        background:
+          radial-gradient(circle at 18% 14%, rgba(70, 192, 255, 0.12), transparent 28%),
+          radial-gradient(circle at 88% 82%, rgba(121, 138, 255, 0.1), transparent 30%),
+          #f7f9fb;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+      }
+
+      .home-link {
+        position: fixed;
+        left: 24px;
+        top: 24px;
+        z-index: 20;
+        border: 1px solid rgba(37, 107, 181, 0.18);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow: 0 10px 28px rgba(42, 95, 162, 0.1);
+        color: #1f67c8;
+        font-size: 14px;
+        font-weight: 800;
+        padding: 9px 14px;
+        text-decoration: none;
+        backdrop-filter: blur(18px);
+      }
+
+      main {
+        width: min(980px, calc(100% - 48px));
+        min-height: 100vh;
+        margin: 0 auto;
+        display: grid;
+        align-content: center;
+        gap: 24px;
+        padding: 92px 0;
+      }
+
+      h1,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 30px;
+        letter-spacing: 0;
+      }
+
+      .intro {
+        max-width: 760px;
+        color: #5f6f7c;
+        font-size: 18px;
+        line-height: 1.62;
+      }
+
+      .stage {
+        min-height: 340px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(37, 107, 181, 0.14);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: 0 22px 58px rgba(63, 91, 123, 0.12);
+        padding: 48px;
+      }
+
+      .mock-line {
+        width: min(680px, 100%);
+        display: grid;
+        gap: 16px;
+        justify-items: start;
+      }
+
+      .bar-slot {
+        width: min(512px, 100%);
+        height: 52px;
+        display: block;
+      }
+
+      .article-copy {
+        max-width: 660px;
+        color: #2c3745;
+        font-size: 18px;
+        line-height: 1.72;
+        letter-spacing: 0;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      button {
+        border: 1px solid rgba(37, 107, 181, 0.18);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow: 0 10px 28px rgba(42, 95, 162, 0.1);
+        color: #1f67c8;
+        cursor: pointer;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 800;
+        padding: 10px 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <a class="home-link" href="../index.html">返回首页</a>
+    <main>
+      <header>
+        <h1>ProcessingGenerationBar 处理生成</h1>
+        <p class="intro">展示划词生成过程中的处理状态：基础颜色和柔焦胶囊遵循 Figma，内部水流、扫光和焦散参考提供的 03 处理动效。</p>
+      </header>
+
+      <section class="stage">
+        <div class="mock-line">
+          <p class="article-copy">CentWise flips the model from reactive to proactive. It does not simply show what users spent yesterday; it helps them understand what they can safely spend today without compromising tomorrow's obligations.</p>
+          <div class="bar-slot" data-processing-bar></div>
+          <p class="article-copy">The assistant is reorganizing the selected section into a calmer explanation, keeping the surrounding document context while turning the financial insight into a clearer decision-ready paragraph.</p>
+        </div>
+      </section>
+
+      <div class="actions">
+        <button type="button" data-start>播放</button>
+        <button type="button" data-stop>停止</button>
+      </div>
+    </main>
+
+    <script src="../dist/ai-water-interactions.js?v=processing-5"></script>
+    <script>
+      const processing = AIWater.createProcessingGenerationBar({
+        target: "[data-processing-bar]",
+        align: "left"
+      });
+
+      document.querySelector("[data-start]").addEventListener("click", () => processing.start());
+      document.querySelector("[data-stop]").addEventListener("click", () => processing.stop());
+    </script>
+  </body>
+</html>
