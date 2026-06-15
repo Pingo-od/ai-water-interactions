@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Table Swipe Merge</title>
+    <link rel="stylesheet" href="../dist/ai-water-interactions.css?v=table-swipe-2" />
+    <style>
+      :root {
+        font-family: "SF Pro Display", "PingFang SC", "Noto Sans SC", Arial, sans-serif;
+        color: #17202a;
+        background:
+          radial-gradient(circle at 16% 12%, rgba(70, 192, 255, 0.12), transparent 28%),
+          radial-gradient(circle at 86% 82%, rgba(121, 138, 255, 0.1), transparent 30%),
+          #f7f9fb;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+      }
+
+      .home-link {
+        position: fixed;
+        left: 24px;
+        top: 24px;
+        z-index: 20;
+        border: 1px solid rgba(37, 107, 181, 0.18);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow: 0 10px 28px rgba(42, 95, 162, 0.1);
+        color: #1f67c8;
+        font-size: 14px;
+        font-weight: 800;
+        padding: 9px 14px;
+        text-decoration: none;
+        backdrop-filter: blur(18px);
+      }
+
+      main {
+        width: min(1040px, calc(100% - 48px));
+        min-height: 100vh;
+        margin: 0 auto;
+        display: grid;
+        align-content: center;
+        gap: 24px;
+        padding: 92px 0;
+      }
+
+      h1,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 30px;
+        letter-spacing: 0;
+      }
+
+      .intro {
+        max-width: 760px;
+        color: #5f6f7c;
+        font-size: 18px;
+        line-height: 1.62;
+      }
+
+      .document-shell {
+        border: 1px solid rgba(37, 107, 181, 0.14);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.88);
+        box-shadow: 0 22px 58px rgba(63, 91, 123, 0.12);
+        overflow: hidden;
+      }
+
+      .doc-toolbar {
+        height: 56px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: #e8f2ff;
+        padding: 0 28px;
+      }
+
+      .tool-dot {
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+        background: #3b83f7;
+        box-shadow: 34px 0 0 rgba(37, 107, 181, 0.22), 68px 0 0 rgba(37, 107, 181, 0.22);
+      }
+
+      .document {
+        padding: 34px 46px 46px;
+      }
+
+      .document h2 {
+        margin: 0 0 18px;
+        color: #111827;
+        font-size: 24px;
+        letter-spacing: 0;
+      }
+
+      .document p {
+        max-width: 740px;
+        margin: 0 0 22px;
+        color: #344150;
+        font-size: 16px;
+        line-height: 1.58;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        border: 1px solid #111827;
+        background: #fff;
+      }
+
+      table {
+        width: 100%;
+        min-width: 760px;
+        border-collapse: collapse;
+        color: #111827;
+        table-layout: fixed;
+      }
+
+      th,
+      td {
+        height: 92px;
+        border: 1px solid #111827;
+        padding: 16px 18px;
+        text-align: left;
+        vertical-align: top;
+        font-size: 14px;
+        line-height: 1.32;
+        transition: background 120ms ease, box-shadow 120ms ease;
+      }
+
+      th {
+        height: 56px;
+        font-weight: 800;
+        background: #fbfcfe;
+      }
+
+      td strong {
+        display: block;
+        margin-bottom: 4px;
+        font-weight: 900;
+      }
+
+      .result-panel {
+        display: grid;
+        gap: 10px;
+        max-width: 740px;
+        border: 1px solid rgba(35, 212, 123, 0.18);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.76);
+        box-shadow: 0 14px 36px rgba(31, 103, 200, 0.08);
+        padding: 18px 20px;
+      }
+
+      .result-panel strong {
+        color: #167552;
+      }
+
+      .result-panel p {
+        color: #5f6f7c;
+        font-size: 15px;
+        line-height: 1.58;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      button {
+        border: 1px solid rgba(37, 107, 181, 0.18);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow: 0 10px 28px rgba(42, 95, 162, 0.1);
+        color: #1f67c8;
+        cursor: pointer;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 800;
+        padding: 10px 16px;
+      }
+
+      @media (max-width: 760px) {
+        main {
+          width: min(100% - 28px, 620px);
+        }
+
+        .document {
+          padding: 28px 22px 34px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="home-link" href="../index.html">返回首页</a>
+    <main>
+      <header>
+        <h1>TableSwipeMerge 表格滑动</h1>
+        <p class="intro">按住表格单元格拖动，蓝色水相笔迹会跟随光标实时绘制，同时识别需要合并的单元格范围。</p>
+      </header>
+
+      <section class="document-shell">
+        <div class="doc-toolbar" aria-hidden="true">
+          <span class="tool-dot"></span>
+        </div>
+        <article class="document">
+          <h2>3. User Personas</h2>
+          <p>在表格中横向或斜向拖过多个单元格，演示 AI 光标识别范围并执行合并整理操作。</p>
+          <div class="table-wrap">
+            <table data-ai-table-merge>
+              <thead>
+                <tr>
+                  <th>Persona details</th>
+                  <th>Pain Points</th>
+                  <th>Goals</th>
+                  <th>AI Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Freelance Fiona</strong>28, Graphic Designer. Income fluctuates $2k-$5k/month.</td>
+                  <td>Terrified of tax season; never knows how much profit she actually has.</td>
+                  <td>Wants to smooth out her income so she can pay herself a steady salary.</td>
+                  <td>Merge risk notes and cash-flow suggestions into one planning block.</td>
+                </tr>
+                <tr>
+                  <td><strong>Subscription Sam</strong>24, Tech Support. Salary $65k.</td>
+                  <td>Loses track of free trials; overspends on subscriptions.</td>
+                  <td>Wants to save for a PS5 and a vacation without doing complex math.</td>
+                  <td>Combine recurring cost insights and cancellation prompts.</td>
+                </tr>
+                <tr>
+                  <td><strong>Founder Fran</strong>31, Studio Owner. Manages variable project deposits.</td>
+                  <td>Cannot quickly see which invoices affect next month's payroll.</td>
+                  <td>Needs a calmer weekly view of income, expenses, and timing.</td>
+                  <td>Merge related columns into a summarized operational note.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="result-panel" aria-live="polite">
+        <strong>表格操作预览</strong>
+        <p data-result>拖过两个或更多单元格，松开后这里会显示模拟合并结果。</p>
+      </section>
+
+      <div class="actions">
+        <button type="button" data-clear>清空选区</button>
+      </div>
+    </main>
+
+    <script src="../dist/ai-water-interactions.js?v=table-swipe-2"></script>
+    <script>
+      const result = document.querySelector("[data-result]");
+      const tableMerge = AIWater.createTableSwipeMerge({
+        target: "[data-ai-table-merge]",
+        onSelect({ cells }) {
+          result.textContent = cells.length > 1 ? `已识别 ${cells.length} 个单元格，可继续拖动调整范围。` : "继续拖动以选择更多单元格。";
+        },
+        onMerge({ cells }) {
+          result.textContent = `正在合并 ${cells.length} 个单元格，并整理为一个 AI 建议区块...`;
+        },
+        onFinish({ cells }) {
+          result.textContent = `合并完成：${cells.length} 个单元格已被整理为一组上下文。`;
+        }
+      });
+
+      document.querySelector("[data-clear]").addEventListener("click", () => {
+        tableMerge.clear();
+        result.textContent = "拖过两个或更多单元格，松开后这里会显示模拟合并结果。";
+      });
+    </script>
+  </body>
+</html>

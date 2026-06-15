@@ -121,6 +121,27 @@
     onFinish: null
   };
 
+  const TABLE_SWIPE_DEFAULTS = {
+    classPrefix: "aiw",
+    target: null,
+    cursorAssetUrl: "../assets/ai-cursor.svg",
+    cursorWidth: 133,
+    cursorHeight: 131,
+    cursorHotspotX: 50,
+    cursorHotspotY: 37,
+    minDragDistance: 6,
+    strokeColor: "rgba(59, 131, 247, 0.82)",
+    strokeSoftColor: "rgba(59, 131, 247, 0.26)",
+    strokeWidth: 11,
+    strokeBlur: 8,
+    clearTrailDelay: 900,
+    finishDelay: 900,
+    maxTrailPoints: 120,
+    onSelect: null,
+    onMerge: null,
+    onFinish: null
+  };
+
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
   }
@@ -1416,6 +1437,275 @@
     }
   }
 
+  class TableSwipeMerge {
+    constructor(options = {}) {
+      this.options = { ...TABLE_SWIPE_DEFAULTS, ...options };
+      this.target = typeof this.options.target === "string" ? document.querySelector(this.options.target) : this.options.target;
+      this.target = this.target || document.body;
+      this.dragging = false;
+      this.startCell = null;
+      this.currentCell = null;
+      this.points = [];
+      this.selectedCells = [];
+      this.finishTimer = 0;
+      this.trailTimer = 0;
+      this.drawFrame = 0;
+
+      this.layer = document.createElement("div");
+      this.layer.className = `${this.options.classPrefix}-table-swipe-layer`;
+      this.layer.innerHTML = `
+        <svg class="${this.options.classPrefix}-table-swipe-svg" aria-hidden="true">
+          <path class="${this.options.classPrefix}-table-swipe-path ${this.options.classPrefix}-table-swipe-path-soft"></path>
+          <path class="${this.options.classPrefix}-table-swipe-path ${this.options.classPrefix}-table-swipe-path-core"></path>
+        </svg>
+        <div class="${this.options.classPrefix}-table-swipe-region" aria-hidden="true"></div>
+        <div class="${this.options.classPrefix}-table-swipe-cursor-wrap" aria-hidden="true">
+          <img class="${this.options.classPrefix}-table-swipe-cursor" src="${this.options.cursorAssetUrl}" alt="" />
+          <span class="${this.options.classPrefix}-table-swipe-cursor-glow"></span>
+        </div>
+      `;
+      document.body.append(this.layer);
+
+      this.svg = this.layer.querySelector(`.${this.options.classPrefix}-table-swipe-svg`);
+      this.pathSoft = this.layer.querySelector(`.${this.options.classPrefix}-table-swipe-path-soft`);
+      this.pathCore = this.layer.querySelector(`.${this.options.classPrefix}-table-swipe-path-core`);
+      this.region = this.layer.querySelector(`.${this.options.classPrefix}-table-swipe-region`);
+      this.cursorWrap = this.layer.querySelector(`.${this.options.classPrefix}-table-swipe-cursor-wrap`);
+      this.cursor = this.layer.querySelector(`.${this.options.classPrefix}-table-swipe-cursor`);
+      this.cursor.style.width = `${this.options.cursorWidth}px`;
+      this.cursor.style.height = `${this.options.cursorHeight}px`;
+      this.pathSoft.style.stroke = this.options.strokeSoftColor;
+      this.pathSoft.style.strokeWidth = `${this.options.strokeWidth + 15}px`;
+      this.pathCore.style.stroke = this.options.strokeColor;
+      this.pathCore.style.strokeWidth = `${this.options.strokeWidth}px`;
+
+      this.onPointerDown = this.onPointerDown.bind(this);
+      this.onPointerMove = this.onPointerMove.bind(this);
+      this.onPointerUp = this.onPointerUp.bind(this);
+      this.onResize = this.onResize.bind(this);
+
+      this.resize();
+      this.target.addEventListener("pointerdown", this.onPointerDown);
+      window.addEventListener("resize", this.onResize);
+      window.addEventListener("scroll", this.onResize, true);
+    }
+
+    resize() {
+      this.svg.setAttribute("viewBox", `0 0 ${window.innerWidth} ${window.innerHeight}`);
+      this.requestDrawTrail();
+      this.updateRegion();
+    }
+
+    onResize() {
+      this.resize();
+    }
+
+    moveCursor(x, y) {
+      this.cursorWrap.style.setProperty("--aiw-table-cursor-x", `${x - this.options.cursorHotspotX}px`);
+      this.cursorWrap.style.setProperty("--aiw-table-cursor-y", `${y - this.options.cursorHotspotY}px`);
+    }
+
+    cellFromPoint(x, y) {
+      const node = document.elementFromPoint(x, y);
+      const cell = node && node.closest ? node.closest("td, th, [data-ai-table-cell]") : null;
+      return cell && this.target.contains(cell) ? cell : null;
+    }
+
+    cellPosition(cell) {
+      const row = cell && cell.closest("tr");
+      if (!row) return null;
+      const rows = Array.from(this.target.querySelectorAll("tr"));
+      const cells = Array.from(row.querySelectorAll("td, th, [data-ai-table-cell]"));
+      return {
+        row: rows.indexOf(row),
+        col: cells.indexOf(cell)
+      };
+    }
+
+    cellsInRange(startCell, endCell) {
+      const start = this.cellPosition(startCell);
+      const end = this.cellPosition(endCell);
+      if (!start || !end || start.row < 0 || end.row < 0 || start.col < 0 || end.col < 0) return [];
+      const minRow = Math.min(start.row, end.row);
+      const maxRow = Math.max(start.row, end.row);
+      const minCol = Math.min(start.col, end.col);
+      const maxCol = Math.max(start.col, end.col);
+      const cells = [];
+      Array.from(this.target.querySelectorAll("tr")).forEach((row, rowIndex) => {
+        if (rowIndex < minRow || rowIndex > maxRow) return;
+        Array.from(row.querySelectorAll("td, th, [data-ai-table-cell]")).forEach((cell, colIndex) => {
+          if (colIndex >= minCol && colIndex <= maxCol) cells.push(cell);
+        });
+      });
+      return cells;
+    }
+
+    setSelection(cells) {
+      this.selectedCells.forEach(cell => {
+        if (!cells.includes(cell)) cell.classList.remove(`${this.options.classPrefix}-table-cell-selected`);
+      });
+      cells.forEach(cell => cell.classList.add(`${this.options.classPrefix}-table-cell-selected`));
+      this.selectedCells = cells;
+      this.updateRegion();
+    }
+
+    selectionRect() {
+      if (!this.selectedCells.length) return null;
+      const rects = this.selectedCells.map(cell => cell.getBoundingClientRect());
+      const left = Math.min(...rects.map(rect => rect.left));
+      const top = Math.min(...rects.map(rect => rect.top));
+      const right = Math.max(...rects.map(rect => rect.right));
+      const bottom = Math.max(...rects.map(rect => rect.bottom));
+      return { left, top, width: right - left, height: bottom - top };
+    }
+
+    updateRegion() {
+      const rect = this.selectionRect();
+      if (!rect || !this.selectedCells.length) {
+        this.region.classList.remove("is-visible", "is-complete");
+        return;
+      }
+      this.region.style.setProperty("--aiw-table-region-x", `${rect.left}px`);
+      this.region.style.setProperty("--aiw-table-region-y", `${rect.top}px`);
+      this.region.style.setProperty("--aiw-table-region-width", `${rect.width}px`);
+      this.region.style.setProperty("--aiw-table-region-height", `${rect.height}px`);
+      this.region.classList.add("is-visible");
+    }
+
+    addPoint(x, y) {
+      const last = this.points[this.points.length - 1];
+      if (!last || Math.hypot(x - last.x, y - last.y) > 3) {
+        this.points.push({ x, y });
+        if (this.points.length > this.options.maxTrailPoints) {
+          this.points.splice(0, this.points.length - this.options.maxTrailPoints);
+        }
+      }
+      this.requestDrawTrail();
+    }
+
+    trailPath() {
+      if (this.points.length < 2) return "";
+      const first = this.points[0];
+      let path = `M ${first.x.toFixed(1)} ${first.y.toFixed(1)}`;
+      for (let i = 1; i < this.points.length - 1; i += 1) {
+        const current = this.points[i];
+        const next = this.points[i + 1];
+        const x = ((current.x + next.x) * 0.5).toFixed(1);
+        const y = ((current.y + next.y) * 0.5).toFixed(1);
+        path += ` Q ${current.x.toFixed(1)} ${current.y.toFixed(1)} ${x} ${y}`;
+      }
+      const last = this.points[this.points.length - 1];
+      path += ` L ${last.x.toFixed(1)} ${last.y.toFixed(1)}`;
+      return path;
+    }
+
+    requestDrawTrail() {
+      if (this.drawFrame) return;
+      this.drawFrame = window.requestAnimationFrame(() => {
+        this.drawFrame = 0;
+        this.drawTrail();
+      });
+    }
+
+    drawTrail() {
+      const path = this.trailPath();
+      this.pathSoft.setAttribute("d", path);
+      this.pathCore.setAttribute("d", path);
+    }
+
+    clearTrail() {
+      this.points = [];
+      if (this.drawFrame) {
+        window.cancelAnimationFrame(this.drawFrame);
+        this.drawFrame = 0;
+      }
+      this.drawTrail();
+    }
+
+    onPointerDown(event) {
+      if (event.button !== 0) return;
+      const cell = this.cellFromPoint(event.clientX, event.clientY);
+      if (!cell) return;
+      event.preventDefault();
+      this.dragging = true;
+      this.startCell = cell;
+      this.currentCell = cell;
+      this.startX = event.clientX;
+      this.startY = event.clientY;
+      this.points = [];
+      window.clearTimeout(this.finishTimer);
+      window.clearTimeout(this.trailTimer);
+      this.region.classList.remove("is-complete");
+      this.layer.classList.add("is-selecting");
+      this.target.classList.add(`${this.options.classPrefix}-table-swipe-target-active`);
+      this.target.setPointerCapture?.(event.pointerId);
+      this.moveCursor(event.clientX, event.clientY);
+      this.addPoint(event.clientX, event.clientY);
+      this.setSelection([cell]);
+      window.addEventListener("pointermove", this.onPointerMove);
+      window.addEventListener("pointerup", this.onPointerUp, { once: true });
+    }
+
+    onPointerMove(event) {
+      if (!this.dragging) return;
+      event.preventDefault();
+      this.moveCursor(event.clientX, event.clientY);
+      this.addPoint(event.clientX, event.clientY);
+      const distance = Math.hypot(event.clientX - this.startX, event.clientY - this.startY);
+      if (distance < this.options.minDragDistance) return;
+      const cell = this.cellFromPoint(event.clientX, event.clientY);
+      if (!cell) return;
+      this.currentCell = cell;
+      const cells = this.cellsInRange(this.startCell, this.currentCell);
+      this.setSelection(cells);
+      if (typeof this.options.onSelect === "function") {
+        this.options.onSelect({ cells, rect: this.selectionRect() });
+      }
+    }
+
+    onPointerUp(event) {
+      this.dragging = false;
+      window.removeEventListener("pointermove", this.onPointerMove);
+      this.target.releasePointerCapture?.(event.pointerId);
+      this.layer.classList.remove("is-selecting");
+      this.target.classList.remove(`${this.options.classPrefix}-table-swipe-target-active`);
+      const cells = this.selectedCells.slice();
+      if (cells.length > 1) {
+        this.region.classList.add("is-complete");
+        if (typeof this.options.onMerge === "function") {
+          this.options.onMerge({ cells, rect: this.selectionRect() });
+        }
+        this.finishTimer = window.setTimeout(() => {
+          if (typeof this.options.onFinish === "function") {
+            this.options.onFinish({ cells, rect: this.selectionRect() });
+          }
+        }, this.options.finishDelay);
+      }
+      this.trailTimer = window.setTimeout(() => this.clearTrail(), this.options.clearTrailDelay);
+    }
+
+    clear() {
+      window.clearTimeout(this.finishTimer);
+      window.clearTimeout(this.trailTimer);
+      this.selectedCells.forEach(cell => cell.classList.remove(`${this.options.classPrefix}-table-cell-selected`));
+      this.selectedCells = [];
+      this.currentCell = null;
+      this.startCell = null;
+      this.region.classList.remove("is-visible", "is-complete");
+      this.clearTrail();
+      return this;
+    }
+
+    destroy() {
+      this.clear();
+      this.target.removeEventListener("pointerdown", this.onPointerDown);
+      window.removeEventListener("pointermove", this.onPointerMove);
+      window.removeEventListener("resize", this.onResize);
+      window.removeEventListener("scroll", this.onResize, true);
+      this.layer.remove();
+    }
+  }
+
   window.AIWater = window.AIWater || {};
   window.AIWater.AICursor = AICursor;
   window.AIWater.CursorTrigger = CursorTrigger;
@@ -1424,6 +1714,7 @@
   window.AIWater.WaterRippleLayer = WaterRippleLayer;
   window.AIWater.EdgeGlowLayer = EdgeGlowLayer;
   window.AIWater.TextSelectionGeneration = TextSelectionGeneration;
+  window.AIWater.TableSwipeMerge = TableSwipeMerge;
   window.AIWater.createCursor = function createCursor(options) {
     return new AICursor(options);
   };
@@ -1444,5 +1735,8 @@
   };
   window.AIWater.createTextSelectionGeneration = function createTextSelectionGeneration(options) {
     return new TextSelectionGeneration(options);
+  };
+  window.AIWater.createTableSwipeMerge = function createTableSwipeMerge(options) {
+    return new TableSwipeMerge(options);
   };
 })();
