@@ -80,6 +80,26 @@
     background: null
   };
 
+  const EDGE_GLOW_DEFAULTS = {
+    classPrefix: "aiw",
+    target: null,
+    fullScreen: true,
+    autoPlay: false,
+    assetUrl: "../assets/edge-glow-pad-edge-only.png",
+    intensity: 1,
+    thickness: 42,
+    blur: 32,
+    opacity: 0.82,
+    colors: {
+      topLeft: "rgba(70, 192, 255, 0.74)",
+      topRight: "rgba(255, 37, 99, 0.62)",
+      right: "rgba(255, 168, 0, 0.58)",
+      bottomRight: "rgba(35, 212, 123, 0.58)",
+      bottomLeft: "rgba(121, 138, 255, 0.62)",
+      left: "rgba(70, 136, 255, 0.62)"
+    }
+  };
+
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
   }
@@ -1061,12 +1081,101 @@
     }
   }
 
+  class EdgeGlowLayer {
+    constructor(options = {}) {
+      this.options = {
+        ...EDGE_GLOW_DEFAULTS,
+        ...options,
+        colors: { ...EDGE_GLOW_DEFAULTS.colors, ...(options.colors || {}) }
+      };
+      this.target = typeof this.options.target === "string" ? document.querySelector(this.options.target) : this.options.target;
+      this.target = this.target || document.body;
+      this.active = false;
+
+      this.layer = document.createElement("div");
+      this.layer.className = `${this.options.classPrefix}-edge-glow-layer`;
+      if (this.options.fullScreen) this.layer.classList.add("is-fullscreen");
+      this.layer.innerHTML = `
+        <img class="${this.options.classPrefix}-edge-glow-image" src="${this.options.assetUrl}" alt="" aria-hidden="true" />
+        <span class="${this.options.classPrefix}-edge-glow ${this.options.classPrefix}-edge-glow-top" aria-hidden="true"></span>
+        <span class="${this.options.classPrefix}-edge-glow ${this.options.classPrefix}-edge-glow-right" aria-hidden="true"></span>
+        <span class="${this.options.classPrefix}-edge-glow ${this.options.classPrefix}-edge-glow-bottom" aria-hidden="true"></span>
+        <span class="${this.options.classPrefix}-edge-glow ${this.options.classPrefix}-edge-glow-left" aria-hidden="true"></span>
+        <span class="${this.options.classPrefix}-edge-glow-corner ${this.options.classPrefix}-edge-glow-corner-tl" aria-hidden="true"></span>
+        <span class="${this.options.classPrefix}-edge-glow-corner ${this.options.classPrefix}-edge-glow-corner-tr" aria-hidden="true"></span>
+        <span class="${this.options.classPrefix}-edge-glow-corner ${this.options.classPrefix}-edge-glow-corner-br" aria-hidden="true"></span>
+        <span class="${this.options.classPrefix}-edge-glow-corner ${this.options.classPrefix}-edge-glow-corner-bl" aria-hidden="true"></span>
+      `;
+
+      if (!this.options.fullScreen) {
+        const position = getComputedStyle(this.target).position;
+        if (position === "static") this.target.style.position = "relative";
+      }
+      this.target.append(this.layer);
+      this.applyOptions();
+      if (this.options.autoPlay) this.start();
+    }
+
+    applyOptions() {
+      const thickness = Math.max(1, Number(this.options.thickness) || EDGE_GLOW_DEFAULTS.thickness);
+      const blur = Math.max(0, Number(this.options.blur) || EDGE_GLOW_DEFAULTS.blur);
+      const intensity = Math.max(0, Number(this.options.intensity) || 1);
+      const opacity = clamp(Number(this.options.opacity) || EDGE_GLOW_DEFAULTS.opacity, 0, 1);
+      this.layer.style.setProperty("--aiw-edge-thickness", `${thickness}px`);
+      this.layer.style.setProperty("--aiw-edge-blur", `${blur}px`);
+      this.layer.style.setProperty("--aiw-edge-intensity", String(intensity));
+      this.layer.style.setProperty("--aiw-edge-opacity", String(opacity));
+      this.layer.style.setProperty("--aiw-edge-image", `url("${this.options.assetUrl}")`);
+      this.layer.style.setProperty("--aiw-edge-top-left", this.options.colors.topLeft);
+      this.layer.style.setProperty("--aiw-edge-top-right", this.options.colors.topRight);
+      this.layer.style.setProperty("--aiw-edge-right", this.options.colors.right);
+      this.layer.style.setProperty("--aiw-edge-bottom-right", this.options.colors.bottomRight);
+      this.layer.style.setProperty("--aiw-edge-bottom-left", this.options.colors.bottomLeft);
+      this.layer.style.setProperty("--aiw-edge-left", this.options.colors.left);
+    }
+
+    setOptions(options = {}) {
+      this.options = {
+        ...this.options,
+        ...options,
+        colors: { ...this.options.colors, ...(options.colors || {}) }
+      };
+      const image = this.layer.querySelector(`.${this.options.classPrefix}-edge-glow-image`);
+      if (image && options.assetUrl) image.src = options.assetUrl;
+      this.applyOptions();
+      return this;
+    }
+
+    start() {
+      this.active = true;
+      this.layer.classList.add("is-active");
+      return this;
+    }
+
+    stop() {
+      this.active = false;
+      this.layer.classList.remove("is-active");
+      return this;
+    }
+
+    toggle(force) {
+      const shouldShow = typeof force === "boolean" ? force : !this.active;
+      return shouldShow ? this.start() : this.stop();
+    }
+
+    destroy() {
+      this.stop();
+      this.layer.remove();
+    }
+  }
+
   window.AIWater = window.AIWater || {};
   window.AIWater.AICursor = AICursor;
   window.AIWater.CursorTrigger = CursorTrigger;
   window.AIWater.AICommandChip = AICommandChip;
   window.AIWater.VoiceInputBubble = VoiceInputBubble;
   window.AIWater.WaterRippleLayer = WaterRippleLayer;
+  window.AIWater.EdgeGlowLayer = EdgeGlowLayer;
   window.AIWater.createCursor = function createCursor(options) {
     return new AICursor(options);
   };
@@ -1081,5 +1190,8 @@
   };
   window.AIWater.createWaterRippleLayer = function createWaterRippleLayer(options) {
     return new WaterRippleLayer(options);
+  };
+  window.AIWater.createEdgeGlowLayer = function createEdgeGlowLayer(options) {
+    return new EdgeGlowLayer(options);
   };
 })();
