@@ -316,6 +316,151 @@
   animation: aiwTypingCaret 720ms steps(1, end) infinite;
 }
 
+.aiw-water-ripple-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2147482000;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 1;
+}
+
+.aiw-water-ripple-layer.is-fullscreen {
+  position: fixed;
+  z-index: 2147482500;
+}
+
+.aiw-water-ripple-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.aiw-edge-glow-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2147482600;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 520ms ease;
+}
+
+.aiw-edge-glow-layer.is-fullscreen {
+  position: fixed;
+}
+
+.aiw-edge-glow-layer.is-active {
+  opacity: var(--aiw-edge-opacity, 0.82);
+}
+
+.aiw-edge-glow-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: fill;
+  opacity: calc(0.92 * var(--aiw-edge-intensity, 1));
+  filter:
+    brightness(1)
+    saturate(calc(1.02 + var(--aiw-edge-intensity, 1) * 0.08))
+    drop-shadow(0 0 10px rgba(116, 196, 255, 0.18));
+  transform-origin: 50% 50%;
+  user-select: none;
+  will-change: opacity, transform, filter;
+}
+
+.aiw-edge-glow-layer.is-active .aiw-edge-glow-image {
+  animation: aiwEdgeGlowImageBreath 4600ms ease-in-out infinite;
+}
+
+.aiw-edge-glow,
+.aiw-edge-glow-corner {
+  position: absolute;
+  display: none;
+  opacity: 0;
+}
+
+.aiw-edge-glow-top {
+  left: 0;
+  top: calc(var(--aiw-edge-thickness, 42px) * -0.72);
+  width: 100%;
+  height: calc(var(--aiw-edge-thickness, 42px) * 1.9);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.16) 38%, transparent 100%),
+    linear-gradient(90deg, var(--aiw-edge-top-left), rgba(255, 255, 255, 0.3) 42%, var(--aiw-edge-top-right));
+}
+
+.aiw-edge-glow-right {
+  right: calc(var(--aiw-edge-thickness, 42px) * -0.72);
+  top: 0;
+  width: calc(var(--aiw-edge-thickness, 42px) * 1.9);
+  height: 100%;
+  background:
+    linear-gradient(270deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.12) 38%, transparent 100%),
+    linear-gradient(180deg, var(--aiw-edge-top-right), var(--aiw-edge-right) 46%, var(--aiw-edge-bottom-right));
+  animation-delay: -680ms;
+}
+
+.aiw-edge-glow-bottom {
+  left: 0;
+  bottom: calc(var(--aiw-edge-thickness, 42px) * -0.72);
+  width: 100%;
+  height: calc(var(--aiw-edge-thickness, 42px) * 1.9);
+  background:
+    linear-gradient(0deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.12) 38%, transparent 100%),
+    linear-gradient(90deg, var(--aiw-edge-bottom-left), rgba(255, 255, 255, 0.22) 48%, var(--aiw-edge-bottom-right));
+  animation-delay: -1180ms;
+}
+
+.aiw-edge-glow-left {
+  left: calc(var(--aiw-edge-thickness, 42px) * -0.72);
+  top: 0;
+  width: calc(var(--aiw-edge-thickness, 42px) * 1.9);
+  height: 100%;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.12) 38%, transparent 100%),
+    linear-gradient(180deg, var(--aiw-edge-top-left), var(--aiw-edge-left) 48%, var(--aiw-edge-bottom-left));
+  animation-delay: -1720ms;
+}
+
+.aiw-edge-glow-corner {
+  width: min(34vw, 360px);
+  height: min(34vw, 360px);
+  border-radius: 999px;
+  filter: blur(calc(var(--aiw-edge-blur, 32px) * 0.72)) saturate(calc(1.08 * var(--aiw-edge-intensity, 1)));
+  opacity: calc(0.52 * var(--aiw-edge-intensity, 1));
+}
+
+.aiw-edge-glow-corner-tl {
+  left: min(-15vw, -90px);
+  top: min(-15vw, -90px);
+  background: radial-gradient(circle, var(--aiw-edge-top-left) 0%, rgba(70, 192, 255, 0.24) 36%, transparent 72%);
+  animation-delay: -260ms;
+}
+
+.aiw-edge-glow-corner-tr {
+  right: min(-15vw, -90px);
+  top: min(-15vw, -90px);
+  background: radial-gradient(circle, var(--aiw-edge-top-right) 0%, rgba(255, 37, 99, 0.22) 34%, transparent 72%);
+  animation-delay: -860ms;
+}
+
+.aiw-edge-glow-corner-br {
+  right: min(-15vw, -90px);
+  bottom: min(-15vw, -90px);
+  background: radial-gradient(circle, var(--aiw-edge-bottom-right) 0%, rgba(35, 212, 123, 0.2) 34%, transparent 72%);
+  animation-delay: -1460ms;
+}
+
+.aiw-edge-glow-corner-bl {
+  left: min(-15vw, -90px);
+  bottom: min(-15vw, -90px);
+  background: radial-gradient(circle, var(--aiw-edge-bottom-left) 0%, rgba(121, 138, 255, 0.22) 34%, transparent 72%);
+  animation-delay: -2080ms;
+}
+
 @keyframes aiwVoiceWave {
   0%,
   100% {
@@ -336,5 +481,48 @@
   49%,
   100% {
     opacity: 0;
+  }
+}
+
+@keyframes aiwEdgeGlowBreath {
+  0%,
+  100% {
+    opacity: calc(0.62 * var(--aiw-edge-intensity, 1));
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: calc(0.94 * var(--aiw-edge-intensity, 1));
+    transform: scale(1.018);
+  }
+}
+
+@keyframes aiwEdgeGlowImageBreath {
+  0%,
+  100% {
+    opacity: calc(0.58 * var(--aiw-edge-intensity, 1));
+    filter:
+      brightness(0.96)
+      saturate(calc(1 + var(--aiw-edge-intensity, 1) * 0.06))
+      drop-shadow(0 0 6px rgba(116, 196, 255, 0.1));
+    transform: scale(0.999);
+  }
+
+  42% {
+    opacity: calc(1 * var(--aiw-edge-intensity, 1));
+    filter:
+      brightness(1.2)
+      saturate(calc(1.12 + var(--aiw-edge-intensity, 1) * 0.12))
+      drop-shadow(0 0 18px rgba(116, 196, 255, 0.28));
+    transform: scale(1.004);
+  }
+
+  58% {
+    opacity: calc(0.92 * var(--aiw-edge-intensity, 1));
+    filter:
+      brightness(1.1)
+      saturate(calc(1.08 + var(--aiw-edge-intensity, 1) * 0.1))
+      drop-shadow(0 0 14px rgba(116, 196, 255, 0.22));
+    transform: scale(1.002);
   }
 }
